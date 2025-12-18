@@ -1,0 +1,190 @@
+#!/usr/bin/env python
+# ===============================================================================
+#     This file is part of Jwalk (Python 3).
+#     
+#     Jwalk - A tool to calculate the solvent accessible surface distance (SASD) 
+#     between crosslinked residues.
+#     
+#     Copyright 2016 Josh Bullock and Birkbeck College University of London.
+# 
+#     Jwalk is available under Public Licence.
+#     This software is made available under GPL V3
+#
+#     Please cite your use of Jwalk in published work:
+#     
+#     J.Bullock, J. Schwab, K. Thalassinos, M. Topf (2016)
+#     The importance of non-accessible crosslinks and solvent accessible surface distance
+#     in modelling proteins with restraints from crosslinking mass spectrometry. 
+#     Molecular and Cellular Proteomics (15) pp.2491-2500
+#
+# ===============================================================================
+
+## IMPORTS
+import os, sys, argparse, pathlib
+from multiprocessing import cpu_count
+from Jwalk import PDBTools, GridTools, SurfaceTools, SASDTools
+
+## GLOBAL DEFAULTS
+max_cpus = cpu_count()
+
+amino_acids = {"LYS":"lysines",         "CYS":"cysteines",      "ASP":"aspartates",  "GLU":"glutamates",
+               "VAL":"valines",         "ILE":"isoleucines",    "LEU":"leucines",    "ARG":"arginines",
+               "PRO":"prolines",        "GLY":"glycines",       "ALA":"alanines",    "TRP":"tryptophans",
+               "PHE":"phenylalanines",  "SER":"serines",        "GLN":"glutamines",  "HIS":"histidines",
+               "MET":"methionines",     "THR":"threonines",     "ASN":"asparagines", "TYR":"tyrosines"}
+
+## ARGPARSE
+parser = argparse.ArgumentParser(description="JWALK: Calculate SASDs on your target PDB files")
+
+parser.add_argument("-f", type=pathlib.Path, default="NULL", 
+                    help="Input path to .pdb file")
+
+parser.add_argument("-o", type=pathlib.Path, default=os.getcwd(),
+                    help="Output path for Jwalk results (default: Out to \"./Jwalk_results\" in the current working directory)")
+
+parser.add_argument("-xl_list", type=pathlib.Path, default="NULL", 
+                    help="OPTIONAL: Input path to crosslink list (default: Finds all Lys-to-Lys crosslinks)")
+
+parser.add_argument("-xl_dist_cutoff", type=float, default=sys.float_info.max, 
+                    help="OPTIONAL: Specify maximum crosslink distance cutoff in Angstroms (default: Keeps all distances)")
+
+parser.add_argument("-aa1", type=str, default="LYS", 
+                    help="OPTIONAL: Specify inital crosslink amino acid three letter code (default: LYS)")
+
+parser.add_argument("-aa2", type=str, default="LYS", 
+                    help="OPTIONAL: Specify ending crosslink amino acid three letter code (default: LYS)")
+
+parser.add_argument("-vox", type=int, default=1, 
+                    help="OPTIONAL: Specify voxel resolution to use in Angstrom (default: 1 Angstrom)")
+
+parser.add_argument("-ncpus", type=int, default=max_cpus, 
+                    help="OPTIONAL: Specify number of cpus to use (default: {})".format(max_cpus))
+
+args = parser.parse_args()
+
+## ARGUMENT HANDLING
+if __name__ == "__main__":
+
+    # checking if pdb file supplied exists and is of type .pdb
+    with args.f as pdb_path:
+        if pdb_path.exists() and pdb_path.glob("*.pdb"):
+            pdb = pdb_path
+            pass
+        elif not pdb_path.exists():
+            print("ERROR: The input file supplied cannot be found. Please enter a .pdb file type")
+            sys.exit(2)
+        elif not pdb_path.glob("*.pdb"):
+            print("ERROR: The input file supplied is not supported. Please enter a .pdb file type")
+            sys.exit(2)
+        else:
+            print("ERROR: The input file supplied is not supported. Please enter a .pdb file type")
+            sys.exit(2)
+
+    # creating result output directory (defaulting to creating it in the working directory)
+    with args.o as jwalk_results:
+        if jwalk_results.exists() and jwalk_results.is_dir():
+            jwalk_results_dir = jwalk_results
+            pass
+        else:
+            print("WARNING: {} not found. Creating directory {}".format(jwalk_results,jwalk_results))
+            os.mkdir(jwalk_results)
+            jwalk_results_dir = jwalk_results
+            pass
+    
+    # checking if an xl_list was provided
+    with args.xl_list as output_path:
+        # if none is provided use the aa1 and aa2 inputs (default is LYS-LYS crosslinks)
+        if os.path.normpath(output_path) == "NULL":
+            aa1 = args.aa1.upper()
+            aa2 = args.aa2.upper()
+            xl_list = "NULL"
+
+            if aa1 not in amino_acids or aa2 not in amino_acids:
+                print("ERROR: Please type amino acid in three letter code format")
+                print(amino_acids.keys())
+                sys.exit(2)
+            else:
+                print("Calculating all {}-to-{} crosslinks".format(aa1,aa2))
+                pass
+        # accepting xl_list
+        elif output_path.exists() and output_path.is_file():
+            print("Calculating all crosslinks found in {}".format(output_path.name))
+            aa1 = "NULL" 
+            aa2 = "NULL"
+            xl_list = output_path
+            pass
+
+    if args.xl_dist_cutoff > 0.0: 
+        max_dist = args.xl_dist_cutoff
+        pass
+    else:
+        print("WARNING: Maximum crosslink distance cutoff was set to infinity")
+        max_dist = sys.float_info.max
+    
+    if args.vox > 0:
+        vox = args.vox
+        pass
+    else:
+        print("WARNING: Voxel resolution was set to 1 Angstrom")
+        vox = 1
+        pass
+
+    if args.ncpus > 1:
+        ncpus = args.ncpus
+        pass
+    else:
+        print("WARNING: Number of CPUs was set to 1")
+        ncpus = 1
+        pass
+
+## FUNCTION DEF
+def runJwalk(pdb, xl_list, aa1, aa2, max_dist, jwalk_results_dir, vox, ncpus):
+    """
+        Execute Jwalk with processed command line options
+			
+			max_dist: maximum distance Jwalk will search
+			vox: angstoms per voxel in grid
+			surface: if True use higher resolution surface method
+			xl_list: list of specific crosslinks to calculate
+			aa1: starting residue type 
+			aa2: ending residues type
+			ncpus: number of cpus to use               
+    """
+    # load pdb into Jwalk
+    structure_instance = PDBTools.read_PDB_file(pdb)
+    # generate grid of voxel size (vox) that encapsulates pdb
+    grid = GridTools.makeGrid(structure_instance, vox)
+
+    # mark C-alpha positions on grid
+    if xl_list != "NULL": # if specific crosslinks need to be calculated
+        crosslink_pairs, aa1_CA, aa2_CA = GridTools.mark_CAlphas_pairs(grid, structure_instance, xl_list)
+    else:
+        crosslink_pairs = [] # na if searching every combination between residue types
+        aa1_CA, aa2_CA = GridTools.mark_CAlphas(grid, structure_instance, aa1, aa2)
+    
+    # check more rigorously if residues are solvent accessible or not
+    aa1_CA = SurfaceTools.check_solvent_accessibility_freesasa(pdb, aa1_CA, xl_list, amino_acids, ncpus)
+    aa2_CA = SurfaceTools.check_solvent_accessibility_freesasa(pdb, aa2_CA, xl_list, amino_acids, ncpus)
+
+    dens_map = GridTools.generate_solvent_accessible_surface(grid, structure_instance, aa1_CA, aa2_CA)    
+    # identify which residues are on the surface
+    aa1_voxels, remove_aa1 = GridTools.find_surface_voxels(aa1_CA, dens_map, xl_list)
+    aa2_voxels, remove_aa2 = GridTools.find_surface_voxels(aa2_CA, dens_map, xl_list)
+    
+    crosslink_pairs = SurfaceTools.update_crosslink_pairs(crosslink_pairs, aa1_CA, aa2_CA, remove_aa1, remove_aa2)
+    
+    # calculate sasds
+    sasds = SASDTools.parallel_BFS(aa1_voxels, aa2_voxels, dens_map, aa1_CA, aa2_CA, crosslink_pairs, max_dist, vox, ncpus, xl_list)
+
+    # remove duplicates
+    sasds = GridTools.remove_duplicates(sasds)
+    sasds = SASDTools.get_euclidean_distances(sasds, pdb, aa1, aa2)
+        
+    # output sasds to .pdb file and .txt file
+    PDBTools.write_sasd_to_txt(sasds, pdb,jwalk_results_dir)
+    PDBTools.write_sasd_to_pdb(dens_map, sasds, pdb, jwalk_results_dir)
+    print("{} SASDs calculated".format(len(sasds)))
+
+## MAIN
+if __name__ == "__main__":
+    runJwalk(pdb, xl_list, aa1, aa2, max_dist, jwalk_results_dir, vox, ncpus)
