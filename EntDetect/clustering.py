@@ -203,9 +203,13 @@ class ClusterNativeEntanglements:
             #native_contact_i = int(native_contact_i)
             #native_contact_j = int(native_contact_j)
 
-            reformat_cr = crossing_res.split(',')
+            reformat_cr = crossing_res.split(',') if crossing_res else []
+            
+            # Filter out any empty strings from the split
+            reformat_cr = [cr for cr in reformat_cr if cr]
 
-            reformat_cr = sorted(reformat_cr, key = lambda x: int(re.split("\\+|-", x, maxsplit= 1)[1]))
+            if reformat_cr:
+                reformat_cr = sorted(reformat_cr, key = lambda x: int(re.split("\\+|-", x, maxsplit= 1)[1]))
             #print(native_contact_i, native_contact_j, reformat_cr)
 
 

@@ -440,30 +440,38 @@ class GaussianEntanglement:
         filtered_entanglements = {}
         for ij_gN_gC, crossings in entanglements.items():
             crossingsN, crossingsC = crossings
+            
+            # Convert to list for easier manipulation
+            crossingsN_filtered = list(crossingsN)
+            crossingsC_filtered = list(crossingsC)
 
-            if crossingsN.size:
-                check_crossing = []
-                for crossing in crossingsN:
+            if len(crossingsN_filtered) > 0:
+                crossings_to_remove = []
+                for crossing in crossingsN_filtered:
                     reg_exp = re.split("\\+|-", crossing, maxsplit=1) # split the chirality
-                    check_crossing.append(np.arange(int(reg_exp[1]) - 10 , int(reg_exp[1]) + 11))
-                check_crossing = np.concatenate(check_crossing)
-                missing_res_cr = np.intersect1d(check_crossing, missing_res)
+                    check_crossing = np.arange(int(reg_exp[1]) - 10 , int(reg_exp[1]) + 11)
+                    missing_res_cr = np.intersect1d(check_crossing, missing_res)
 
-                if missing_res_cr.size:
-                    crossingsN.remove(crossing)
+                    if missing_res_cr.size:
+                        crossings_to_remove.append(crossing)
+                
+                for crossing in crossings_to_remove:
+                    crossingsN_filtered.remove(crossing)
 
-            if crossingsC.size:
-                check_crossing = []
-                for crossing in crossingsC:
+            if len(crossingsC_filtered) > 0:
+                crossings_to_remove = []
+                for crossing in crossingsC_filtered:
                     reg_exp = re.split("\\+|-", crossing, maxsplit=1) # split the chirality
-                    check_crossing.append(np.arange(int(reg_exp[1]) - 10 , int(reg_exp[1]) + 11))
-                check_crossing = np.concatenate(check_crossing)
-                missing_res_cr = np.intersect1d(check_crossing, missing_res)
+                    check_crossing = np.arange(int(reg_exp[1]) - 10 , int(reg_exp[1]) + 11)
+                    missing_res_cr = np.intersect1d(check_crossing, missing_res)
 
-                if missing_res_cr.size:
-                    crossingsC.remove(crossing)
+                    if missing_res_cr.size:
+                        crossings_to_remove.append(crossing)
+                
+                for crossing in crossings_to_remove:
+                    crossingsC_filtered.remove(crossing)
 
-            filtered_entanglements[ij_gN_gC] = [crossingsN, crossingsC]
+            filtered_entanglements[ij_gN_gC] = [np.array(crossingsN_filtered), np.array(crossingsC_filtered)]
 
         # filtered_entanglements = {nc: re_cr for nc, re_cr in entanglements.items() if re_cr is not None and len(re_cr) > 0} 
         # filtered_entanglements = {nc: re_cr for nc, re_cr in entanglements.items() if re_cr is not None} 

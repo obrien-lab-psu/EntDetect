@@ -193,8 +193,11 @@ class FeatureGen:
             pdb_NCj_core = row['j']
 
             pdb_crossing_res_core = []
-            for cross in row['c'].split(','):
-                pdb_crossing_res_core += [int(cross[1:])]
+            # Handle case where row['c'] might be NaN or empty
+            if pd.notna(row['c']) and row['c']:
+                for cross in str(row['c']).split(','):
+                    if cross:  # Skip empty strings
+                        pdb_crossing_res_core += [int(cross[1:])]
             #print(f'pdb_crossing_res_core: {pdb_crossing_res_core}')
 
             total_core_ent_res = [pdb_NCi_core, pdb_NCj_core] + pdb_crossing_res_core
@@ -281,7 +284,10 @@ class FeatureGen:
 
             #########################################################################
             #get PDB crossings and those +/- rbuffer along the primary structure
-            pdb_crossing_res = np.hstack([np.arange(int(x) - rbuffer, int(x) + rbuffer + 1) for x in pdb_crossing_res_core]).tolist()
+            if pdb_crossing_res_core:
+                pdb_crossing_res = np.hstack([np.arange(int(x) - rbuffer, int(x) + rbuffer + 1) for x in pdb_crossing_res_core]).tolist()
+            else:
+                pdb_crossing_res = []
             #print(f'pdb_crossing_res: {pdb_crossing_res}')
             #print(f'pdb_crossing_res_core: {pdb_crossing_res_core}')
 
