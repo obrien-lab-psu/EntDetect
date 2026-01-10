@@ -26,12 +26,14 @@ if __name__ == "__main__":
     parser.add_argument("--struct", type=str, required=True, help="Path to either .pdb or .cor file for structure")
     parser.add_argument("--outdir", type=str, required=True, help="output directory for results")
     parser.add_argument("--ID", type=str, required=False, help="An id for the analysis")
+    parser.add_argument("--chain", type=str, required=False, help="Chain identifier", default='A')
     parser.add_argument("--organism", type=str, required=False, help="Organism name for clustering: {Ecoli, Human, Yeast}", default='Ecoli')
     args = parser.parse_args()
     print(args)
     struct = args.struct
     outdir = args.outdir
     ID = args.ID
+    chain = args.chain
     organism = args.organism
 
     # Set up Gaussian Entanglement and Clustering objects
@@ -40,23 +42,23 @@ if __name__ == "__main__":
 
 
     # Calculate native entanglements in all-atom PDB of 1ZMR
-    NativeEnt = ge.calculate_native_entanglements(struct, outdir=os.path.join(outdir, 'Native_GE'), ID=ID)
+    NativeEnt = ge.calculate_native_entanglements(struct, outdir=os.path.join(outdir, 'Native_GE'), ID=ID, chain=chain)
     print(f'Native entanglements saved to {NativeEnt["outfile"]}')
     
 
     # Optional steps: select high-quality entanglements 
-    HQNativeEnt = ge.select_high_quality_entanglements(NativeEnt['outfile'], struct, outdir=os.path.join(outdir, "Native_HQ_GE"), ID=ID, model="EXP")
+    HQNativeEnt = ge.select_high_quality_entanglements(NativeEnt['outfile'], struct, outdir=os.path.join(outdir, "Native_HQ_GE"), ID=ID, model="EXP", chain=chain)
     print(f'High-quality native entanglements saved to {HQNativeEnt["outfile"]}')
 
 
     # Cluster the native entanglements to remove degeneracies
-    nativeClusteredEnt = clustering.Cluster_NativeEntanglements(HQNativeEnt['outfile'], outdir=os.path.join(outdir, "Native_clustered_HQ_GE"), outfile=f"{ID}.csv")
+    nativeClusteredEnt = clustering.Cluster_NativeEntanglements(HQNativeEnt['outfile'], outdir=os.path.join(outdir, "Native_clustered_HQ_GE"), outfile=f"{ID}.csv", chain=chain)
     print(f'Clustered native entanglements saved to {nativeClusteredEnt["outfile"]}')
 
 
     # Generate entanglement features for clustered native entanglements
     FGen = FeatureGen(struct, outdir=os.path.join(outdir, "Native_clustered_HQ_GE_features"), cluster_file=nativeClusteredEnt['outfile'])
-    EntFeatures = FGen.get_uent_features(gene='P00558', chain='A', pdbid='1ZMR')
+    EntFeatures = FGen.get_uent_features(gene='P00558', chain=chain, pdbid='1ZMR')
     print(f'Entanglement features saved to {EntFeatures["outfile"]}')
 
 

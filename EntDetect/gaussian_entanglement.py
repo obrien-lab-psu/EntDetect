@@ -518,7 +518,7 @@ class GaussianEntanglement:
 
 
     ##########################################################################################################################################################
-    def calculate_native_entanglements(self, pdb_file: str, outdir: str, ID: str='') -> dict:
+    def calculate_native_entanglements(self, pdb_file: str, outdir: str, ID: str='', chain: str=None) -> dict:
 
         """
         Driver function that outputs native lasso-like self entanglements and missing residues for pdb and all of its chains if any
@@ -573,6 +573,10 @@ class GaussianEntanglement:
         #print(f'ref_allatoms_dups: {ref_allatoms_dups} {len(ref_allatoms_dups)}')
 
         chains_to_analyze = set(ref_univ.segments.segids)
+        if chain is not None:
+            chains_to_analyze = {chain} if chain in chains_to_analyze else set()
+            if not chains_to_analyze:
+                raise ValueError(f"Chain {chain} not found in structure. Available chains: {set(ref_univ.segments.segids)}")
 
         for chain in chains_to_analyze:
 
@@ -1342,7 +1346,7 @@ class GaussianEntanglement:
     ##########################################################################################################################################################
 
     ##########################################################################################################################################################
-    def select_high_quality_entanglements(self, GE_filepath: str, pdb: str, outdir: str='./', ID: str='', model: str='EXP', mapping: str='None') -> dict:
+    def select_high_quality_entanglements(self, GE_filepath: str, pdb: str, outdir: str='./', ID: str='', model: str='EXP', mapping: str='None', chain: str=None) -> dict:
         """
         This function takes the GE file and selects the high quality entanglements based on the following criteria:
         1. Remove any native NCLE's that are predicted to be pure slipknots (crossings with a net sign that cancels out)

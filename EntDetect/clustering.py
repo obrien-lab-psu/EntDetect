@@ -90,7 +90,7 @@ class ClusterNativeEntanglements:
 
     ##########################################################################################################################################################
     #@cache
-    def Cluster_NativeEntanglements(self, GE_filepath: str, outdir: str='./', outfile: str='Cluster_NativeEntanglements.txt'):
+    def Cluster_NativeEntanglements(self, GE_filepath: str, outdir: str='./', outfile: str='Cluster_NativeEntanglements.txt', chain: str=None):
         
         """
         PARAMS:
