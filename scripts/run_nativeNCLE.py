@@ -23,14 +23,16 @@ if __name__ == "__main__":
     start_time = time.time()
 
     parser = argparse.ArgumentParser(description="Process user specified arguments")
-    parser.add_argument("--struct", type=str, required=True, help="Path to either .pdb or .cor file for structure")
+    parser.add_argument("--struct", type=str, required=True, help="Path to PDB structure file")
     parser.add_argument("--outdir", type=str, required=True, help="output directory for results")
     parser.add_argument("--ID", type=str, required=False, help="An id for the analysis (defaults to structure basename)")
     parser.add_argument("--chain", type=str, required=False, help="Chain identifier (optional, processes all chains if not specified)", default=None)
     parser.add_argument("--organism", type=str, required=False, help="Organism name for clustering: {Ecoli, Human, Yeast}", default='Ecoli')
     parser.add_argument("--Accession", type=str, required=False, help="UniProt Accession for the protein", default='P00558')
+    parser.add_argument("--cg", action='store_true', help="Indicate structure is coarse-grained (C-alpha only) model")
     args = parser.parse_args()
     print(args)
+    
     struct = args.struct
     outdir = args.outdir
     ID = args.ID if args.ID is not None else os.path.splitext(os.path.basename(struct))[0]
@@ -38,7 +40,7 @@ if __name__ == "__main__":
     organism = args.organism
 
     # Set up Gaussian Entanglement and Clustering objects
-    ge = GaussianEntanglement(g_threshold=0.6, density=0.0, Calpha=False, CG=False)
+    ge = GaussianEntanglement(g_threshold=0.6, density=0.0, Calpha=args.cg, CG=args.cg)
     clustering = ClusterNativeEntanglements(organism=organism)
 
     # Determine which chains to process
