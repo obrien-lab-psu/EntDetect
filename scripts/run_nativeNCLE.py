@@ -25,7 +25,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process user specified arguments")
     parser.add_argument("--struct", type=str, required=True, help="Path to either .pdb or .cor file for structure")
     parser.add_argument("--outdir", type=str, required=True, help="output directory for results")
-    parser.add_argument("--ID", type=str, required=False, help="An id for the analysis")
+    parser.add_argument("--ID", type=str, required=False, help="An id for the analysis (defaults to structure basename)")
     parser.add_argument("--chain", type=str, required=False, help="Chain identifier (optional, processes all chains if not specified)", default=None)
     parser.add_argument("--organism", type=str, required=False, help="Organism name for clustering: {Ecoli, Human, Yeast}", default='Ecoli')
     parser.add_argument("--Accession", type=str, required=False, help="UniProt Accession for the protein", default='P00558')
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     print(args)
     struct = args.struct
     outdir = args.outdir
-    ID = args.ID
+    ID = args.ID if args.ID is not None else os.path.splitext(os.path.basename(struct))[0]
     chain = args.chain
     organism = args.organism
 
@@ -56,24 +56,31 @@ if __name__ == "__main__":
             chains_to_process = sorted(set([c.chain_id for c in traj.topology.chains]))
         print(f"Processing chains: {chains_to_process}")
 
-    # Process each chain
+    # Process each chain separately for all steps
     for chain_id in chains_to_process:
         print(f"\n{'='*80}")
         print(f"Processing chain {chain_id}")
         print(f"{'='*80}\n")
         
-        chain_suffix = f"_{chain_id}" if len(chains_to_process) > 1 else ""
+        # Use chain suffix for file naming when processing multiple chains
+        if len(chains_to_process) > 1:
+            hq_id = f"{ID}_{chain_id}"
+            # Use chain-specific subdirectory for Native_GE to avoid overwriting
+            ge_outdir = os.path.join(outdir, f'Native_GE_{chain_id}')
+        else:
+            hq_id = ID
+            ge_outdir = os.path.join(outdir, 'Native_GE')
         
-        # Calculate native entanglements
-        NativeEnt = ge.calculate_native_entanglements(struct, outdir=os.path.join(outdir, 'Native_GE'), ID=ID, chain=chain_id)
+        # Calculate native entanglements for this chain
+        NativeEnt = ge.calculate_native_entanglements(struct, outdir=ge_outdir, ID=hq_id, chain=chain_id)
         print(f'Native entanglements saved to {NativeEnt["outfile"]}')
         
         # Optional steps: select high-quality entanglements 
-        HQNativeEnt = ge.select_high_quality_entanglements(NativeEnt['outfile'], struct, outdir=os.path.join(outdir, "Native_HQ_GE"), ID=f"{ID}_{chain_id}", model="EXP", chain=chain_id)
+        HQNativeEnt = ge.select_high_quality_entanglements(NativeEnt['outfile'], struct, outdir=os.path.join(outdir, "Native_HQ_GE"), ID=hq_id, model="EXP", chain=chain_id)
         print(f'High-quality native entanglements saved to {HQNativeEnt["outfile"]}')
 
         # Cluster the native entanglements to remove degeneracies
-        nativeClusteredEnt = clustering.Cluster_NativeEntanglements(HQNativeEnt['outfile'], outdir=os.path.join(outdir, "Native_clustered_HQ_GE"), outfile=f"{ID}_{chain_id}.csv", chain=chain_id)
+        nativeClusteredEnt = clustering.Cluster_NativeEntanglements(HQNativeEnt['outfile'], outdir=os.path.join(outdir, "Native_clustered_HQ_GE"), outfile=f"{hq_id}.csv", chain=chain_id)
         print(f'Clustered native entanglements saved to {nativeClusteredEnt["outfile"]}')
 
         # Generate entanglement features for clustered native entanglements
