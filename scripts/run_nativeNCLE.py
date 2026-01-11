@@ -59,9 +59,8 @@ if __name__ == "__main__":
 
     # Generate entanglement features for clustered native entanglements
     FGen = FeatureGen(struct, outdir=os.path.join(outdir, "Native_clustered_HQ_GE_features"), cluster_file=nativeClusteredEnt['outfile'])
-    for chain in FGen.chains:
-        EntFeatures = FGen.get_uent_feanexttures(gene=args.Accession, chain=chain, pdbid=ID)
-        print(f'Entanglement features saved to {EntFeatures["outfile"]}')
+    EntFeatures = FGen.get_uent_features(gene=args.Accession, chain=args.chain, pdbid=ID)
+    print(f'Entanglement features saved to {EntFeatures["outfile"]}')
 
 
     print(f'NORMAL TERMINATION - {time.time() - start_time} seconds')

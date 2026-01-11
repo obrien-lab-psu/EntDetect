@@ -192,16 +192,18 @@ class FeatureGen:
             pdb_NCi_core = row['i']
             pdb_NCj_core = row['j']
 
+            # Parse crossings from crossingsN and crossingsC columns  
+            # Each column contains comma-separated crossing residues like "+109" or "+92,+93,+94"
             pdb_crossing_res_core = []
-            # Handle case where row['c'] might be NaN or empty
-            if pd.notna(row['c']) and row['c']:
-                for cross in str(row['c']).split(','):
-                    if cross:  # Skip empty strings
-                        pdb_crossing_res_core += [int(cross[1:])]
+            for col in ['crossingsN', 'crossingsC']:
+                if col in row.index and pd.notna(row[col]) and row[col] != '':
+                    crossings_str = str(row[col])
+                    for cross in crossings_str.split(','):
+                        if cross:  # Skip empty strings
+                            # Remove +/- sign and convert to int, handling potential .0 float artifacts
+                            cross_num = cross[1:].split('.')[0]  # Remove sign and any decimal part
+                            pdb_crossing_res_core.append(int(cross_num))
             #print(f'pdb_crossing_res_core: {pdb_crossing_res_core}')
-
-            total_core_ent_res = [pdb_NCi_core, pdb_NCj_core] + pdb_crossing_res_core
-            #print(pdb_NCi_core, pdb_NCj_core, pdb_crossing_res_core, total_core_ent_res)
 
             uent_df['gene'] += [gene]
             uent_df['PDB'] += [pdbid]
