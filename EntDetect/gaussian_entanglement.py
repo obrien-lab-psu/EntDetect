@@ -542,7 +542,7 @@ class GaussianEntanglement:
         print(f"\n{'#'*100}\nCOMPUTING ENTANGLEMENTS FOR \033[4m{pdb}\033[0m with ID {ID}")
 
         ## Define the outfile and check if it exists. If so load it else create it
-        outfile = os.path.join(f'{outdir}', f'{pdb}_GE.csv')
+        outfile = os.path.join(f'{outdir}', f'{ID}_GE.csv')
         if os.path.exists(outfile):
             print(f'{outfile} ALREADY EXISTS AND WILL BE LOADED')
             outdf = pd.read_csv(outfile, sep='|', dtype={'c': str})
@@ -687,7 +687,7 @@ class GaussianEntanglement:
                 
                 ## If there is Native entanglement then save a file
                 if ent_result: 
-                    outfile = os.path.join(f'{outdir}', f'{pdb}_GE.csv')
+                    outfile = os.path.join(f'{outdir}', f'{ID}_GE.csv')
                     #print(f'WRITING: {outfile}')
                     outdf = {'ID':[], 'chain':[], 'i':[], 'j': [], 'crossingsN': [], 'crossingsC': [], 'gn':[], 'gc':[], 'GLNn':[], 'GLNc':[], 'TLNn':[], 'TLNc':[], 'CCbond':[]}
 

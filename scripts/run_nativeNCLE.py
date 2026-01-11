@@ -65,11 +65,11 @@ if __name__ == "__main__":
         # Use chain suffix for file naming when processing multiple chains
         if len(chains_to_process) > 1:
             hq_id = f"{ID}_{chain_id}"
-            # Use chain-specific subdirectory for Native_GE to avoid overwriting
-            ge_outdir = os.path.join(outdir, f'Native_GE_{chain_id}')
         else:
             hq_id = ID
-            ge_outdir = os.path.join(outdir, 'Native_GE')
+        
+        # All chains use the same Native_GE directory
+        ge_outdir = os.path.join(outdir, 'Native_GE')
         
         # Calculate native entanglements for this chain
         NativeEnt = ge.calculate_native_entanglements(struct, outdir=ge_outdir, ID=hq_id, chain=chain_id)
