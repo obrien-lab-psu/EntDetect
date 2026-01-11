@@ -542,7 +542,7 @@ class GaussianEntanglement:
         print(f"\n{'#'*100}\nCOMPUTING ENTANGLEMENTS FOR \033[4m{pdb}\033[0m with ID {ID}")
 
         ## Define the outfile and check if it exists. If so load it else create it
-        outfile = os.path.join(f'{outdir}', f'{pdb}_GE.txt')
+        outfile = os.path.join(f'{outdir}', f'{pdb}_GE.csv')
         if os.path.exists(outfile):
             print(f'{outfile} ALREADY EXISTS AND WILL BE LOADED')
             outdf = pd.read_csv(outfile, sep='|', dtype={'c': str})
@@ -687,9 +687,9 @@ class GaussianEntanglement:
                 
                 ## If there is Native entanglement then save a file
                 if ent_result: 
-                    outfile = os.path.join(f'{outdir}', f'{pdb}_GE.txt')
+                    outfile = os.path.join(f'{outdir}', f'{pdb}_GE.csv')
                     #print(f'WRITING: {outfile}')
-                    outdf = {'ID':[], 'i':[], 'j': [], 'crossingsN': [], 'crossingsC': [], 'gn':[], 'gc':[], 'GLNn':[], 'GLNc':[], 'TLNn':[], 'TLNc':[], 'CCbond':[]}
+                    outdf = {'ID':[], 'chain':[], 'i':[], 'j': [], 'crossingsN': [], 'crossingsC': [], 'gn':[], 'gc':[], 'GLNn':[], 'GLNc':[], 'TLNn':[], 'TLNc':[], 'CCbond':[]}
 
                     for ij_gN_gC, crossings in ent_result.items():
                         # print(f'ij_gN_gC: {ij_gN_gC} with crossings: {crossings}')
@@ -706,6 +706,7 @@ class GaussianEntanglement:
                         # print(f'Contact: ({i}, {j}) with GLNn: {GLNn} and GLNc: {GLNc} has crossings: {crossingsN} {crossingsC} and CCbond: {CCbond}')
 
                         outdf['ID'] += [ID]
+                        outdf['chain'] += [chain]
                         outdf['i'] += [i]
                         outdf['j'] += [j]
                         outdf['crossingsN'] += [crossingsN]
@@ -726,7 +727,7 @@ class GaussianEntanglement:
                     ent_result = pd.read_csv(outfile, sep='|', dtype={'crossingsN': str, 'crossingsC': str})
                 else:
                     print(f'NO CONTACTS DETECTED for {pdb}')
-                    ent_result = pd.DataFrame({'ID':[], 'i':[], 'j': [], 'crossingsN': [], 'crossingsC': [], 'gn':[], 'gc':[], 'GLNn':[], 'GLNc':[], 'TLNn':[], 'TLNc':[], 'CCbond':[], 'ENT':[]})
+                    ent_result = pd.DataFrame({'ID':[], 'chain':[], 'i':[], 'j': [], 'crossingsN': [], 'crossingsC': [], 'gn':[], 'gc':[], 'GLNn':[], 'GLNc':[], 'TLNn':[], 'TLNc':[], 'CCbond':[], 'ENT':[]})
                     ent_result.to_csv(outfile, sep='|', index=False)
                     print(f'SAVED: {outfile}')
                     ent_result = pd.read_csv(outfile, sep='|', dtype={'c': str})
@@ -765,7 +766,7 @@ class GaussianEntanglement:
     
 
         ## Define the outfile and check if it exists. If so load it else create it
-        outfile = os.path.join(f'{outdir}', f'{ID}_GE.txt')
+        outfile = os.path.join(f'{outdir}', f'{ID}_GE.csv')
         if os.path.exists(outfile):
             print(f'{outfile} ALREADY EXISTS AND WILL BE LOADED')
             outdf = pd.read_csv(outfile, sep='|', dtype={'c': str})
@@ -1400,10 +1401,11 @@ class GaussianEntanglement:
         Checks each raw entanglement for crossings where the signs sum to a net of 0. 
         """        
         print(f'\n{"#"*50}\nRemoving slipknots...')
-        new_df = {'ID':[], 'i':[], 'j':[], 'crossingsN':[], 'crossingsC':[], 'gn':[], 'gc':[], 'GLNn':[], 'GLNc':[], 'TLNn':[], 'TLNc':[], 'CCbond':[], 'ENT':[], 'Slipknot_N':[], 'Slipknot_C':[]}
+        new_df = {'ID':[], 'chain':[], 'i':[], 'j':[], 'crossingsN':[], 'crossingsC':[], 'gn':[], 'gc':[], 'GLNn':[], 'GLNc':[], 'TLNn':[], 'TLNc':[], 'CCbond':[], 'ENT':[], 'Slipknot_N':[], 'Slipknot_C':[]}
         for rowi, row in df.iterrows():
             # print(row)
             ID = row['ID']
+            chain = row['chain']
             i = row['i']
             j = row['j']
             if isinstance(row['crossingsN'], float):
@@ -1464,6 +1466,7 @@ class GaussianEntanglement:
             new_df['i'] += [i]
             new_df['j'] += [j]
             new_df['ID'] += [ID]
+            new_df['chain'] += [chain]
             new_df['crossingsN'] += [','.join(rN)]
             new_df['crossingsC'] += [','.join(rC)]
             new_df['gn'] += [gn]
@@ -1494,10 +1497,11 @@ class GaussianEntanglement:
         else:
             raise ValueError(f'Mapping file {mapping} could not be found!')
 
-        new_df = {'ID':[], 'i':[], 'j':[], 'c':[], 'gn':[], 'gc':[], 'Gn':[], 'Gc':[], 'CCbond':[], 'ENT':[]}
+        new_df = {'ID':[], 'chain':[], 'i':[], 'j':[], 'c':[], 'gn':[], 'gc':[], 'Gn':[], 'Gc':[], 'CCbond':[], 'ENT':[]}
         for rowi, row in df.iterrows():
             #print(row)
             ID = row['ID']
+            chain = row['chain']
             i = row['i']
             j = row['j']
             if isinstance(row['c'], float) or row['c'] == '':
@@ -1524,6 +1528,7 @@ class GaussianEntanglement:
                                     
             if mapped:
                 new_df['ID'] += [ID]
+                new_df['chain'] += [chain]
                 new_df['i'] += [i]
                 new_df['j'] += [j]
                 new_df['c'] += [','.join(r)]
@@ -1550,10 +1555,11 @@ class GaussianEntanglement:
         avg_pLDDT, pLDDT_df = self.average_pLDDT(pdb)
         #print(f'avg_pLDDT: {avg_pLDDT}\n{pLDDT_df}')
 
-        new_df = {'ID':[], 'i':[], 'j':[], 'c':[], 'gn':[], 'gc':[], 'Gn':[], 'Gc':[], 'CCbond':[], 'ENT':[], 'Quality':[], 'Reason':[]}
+        new_df = {'ID':[], 'chain':[], 'i':[], 'j':[], 'c':[], 'gn':[], 'gc':[], 'Gn':[], 'Gc':[], 'CCbond':[], 'ENT':[], 'Quality':[], 'Reason':[]}
         for rowi, row in df.iterrows():
             #print(row)
             ID = row['ID']
+            chain = row['chain']
             i = row['i']
             j = row['j']
             if isinstance(row['c'], float):
@@ -1576,6 +1582,7 @@ class GaussianEntanglement:
                 #print(f'Native contact pLDDT are >= 70 {NC_pLDDT}')
                 if ENT == False: ## if no entanglement but the native contact has a pLDDT >= 70 still return the contact as HQ even though there is no ent
                     new_df['ID'] += [ID]
+                    new_df['chain'] += [chain]
                     new_df['i'] += [i]
                     new_df['j'] += [j]
                     new_df['c'] += [','.join(r)]
@@ -1591,6 +1598,7 @@ class GaussianEntanglement:
             else:
                 #print(f'Native contact pLDDT are < 70 {NC_pLDDT}')
                 new_df['ID'] += [ID]
+                new_df['chain'] += [chain]
                 new_df['i'] += [i]
                 new_df['j'] += [j]
                 new_df['c'] += [','.join(r)]
@@ -1670,6 +1678,7 @@ class GaussianEntanglement:
 
             if len(HQ_crossings) != 0:
                     new_df['ID'] += [ID]
+                    new_df['chain'] += [chain]
                     new_df['i'] += [i]
                     new_df['j'] += [j]
                     new_df['c'] += [','.join(HQ_crossings)]
@@ -1684,6 +1693,7 @@ class GaussianEntanglement:
             else:
                 #print(f'No crossing remaining in either the N or C terminus after removals. ENT will be ignored')
                 new_df['ID'] += [ID]
+                new_df['chain'] += [chain]
                 new_df['i'] += [i]
                 new_df['j'] += [j]
                 new_df['c'] += [','.join(r)]

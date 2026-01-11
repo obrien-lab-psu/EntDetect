@@ -28,6 +28,7 @@ if __name__ == "__main__":
     parser.add_argument("--ID", type=str, required=False, help="An id for the analysis")
     parser.add_argument("--chain", type=str, required=False, help="Chain identifier", default='A')
     parser.add_argument("--organism", type=str, required=False, help="Organism name for clustering: {Ecoli, Human, Yeast}", default='Ecoli')
+    parser.add_argument("--Accession", type=str, required=False, help="UniProt Accession for the protein", default='P00558')
     args = parser.parse_args()
     print(args)
     struct = args.struct
@@ -58,8 +59,9 @@ if __name__ == "__main__":
 
     # Generate entanglement features for clustered native entanglements
     FGen = FeatureGen(struct, outdir=os.path.join(outdir, "Native_clustered_HQ_GE_features"), cluster_file=nativeClusteredEnt['outfile'])
-    EntFeatures = FGen.get_uent_features(gene='P00558', chain=chain, pdbid='1ZMR')
-    print(f'Entanglement features saved to {EntFeatures["outfile"]}')
+    for chain in FGen.chains:
+        EntFeatures = FGen.get_uent_feanexttures(gene=args.Accession, chain=chain, pdbid=ID)
+        print(f'Entanglement features saved to {EntFeatures["outfile"]}')
 
 
     print(f'NORMAL TERMINATION - {time.time() - start_time} seconds')

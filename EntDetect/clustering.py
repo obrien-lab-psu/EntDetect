@@ -11,12 +11,20 @@ import pandas as pd
 import pickle
 import sys, getopt, math, os, time, traceback, glob, copy
 from scipy.cluster.hierarchy import fcluster, linkage, cophenet
-import parmed as pmd
-import mdtraj as mdt
+try:
+    import parmed as pmd
+    import mdtraj as mdt
+except ImportError:
+    pmd = None
+    mdt = None
 import matplotlib
 import matplotlib.pyplot as plt
-import pyemma as pem
-import deeptime
+try:
+    import pyemma as pem
+    import deeptime
+except ImportError:
+    pem = None
+    deeptime = None
 from matplotlib.cm import get_cmap
 from matplotlib.colors import ListedColormap, BoundaryNorm
 import matplotlib.colors as mcolors
@@ -180,17 +188,26 @@ class ClusterNativeEntanglements:
         print(f'# Step 1')
         CCBonds = []
         num_raw_ents = {}
+        chain_info = {}  # Track chain for each ID
         for rowi, row in GE_data.iterrows():
             # print(row)
    
             ID = row['ID']
+            chain = row['chain'] if 'chain' in row else 'A'  # Default to 'A' if chain not present
+            chain_info[ID] = chain
             native_contact_i, native_contact_j = row['i'], row['j']
-            crossing_res = row[['crossingsN', 'crossingsC']].values
-            crossing_res = [cr for cr in crossing_res if cr != '']
+            
+            # Store separate N and C crossings
+            crossingsN = row['crossingsN'] if pd.notna(row['crossingsN']) and row['crossingsN'] != '' else ''
+            crossingsC = row['crossingsC'] if pd.notna(row['crossingsC']) and row['crossingsC'] != '' else ''
+            
+            crossing_res = [cr for cr in [crossingsN, crossingsC] if cr != '']
             crossing_res = ','.join(crossing_res)
             print(native_contact_i, native_contact_j, crossing_res)
 
             gn, gc = row['gn'], row['gc']
+            GLNn, GLNc = row['GLNn'], row['GLNc']
+            TLNn, TLNc = row['TLNn'], row['TLNc']
             CCbond = row['CCbond']
 
             # keep track of number of raw ents for QC purposes
@@ -216,7 +233,7 @@ class ClusterNativeEntanglements:
             # Step 1 and 1b
             grouped_entanglement_data[(ID, *reformat_cr)].append((native_contact_i, native_contact_j))
 
-            entanglement_partial_g_data[(native_contact_i, native_contact_j, *reformat_cr)] = (gn, gc)
+            entanglement_partial_g_data[(native_contact_i, native_contact_j, *reformat_cr)] = (gn, gc, GLNn, GLNc, TLNn, TLNc, crossingsN, crossingsC)
 
             #print(f'CCbond: {CCbond}')
             if CCbond == True:
@@ -728,10 +745,11 @@ class ClusterNativeEntanglements:
 
         with open(outfilepath, "w") as f:
 
-            f.write(f'ID|i|j|c|gn|gc|num_contacts|contacts|CCBond\n')
+            f.write(f'ID|chain|i|j|crossingsN|crossingsC|gn|gc|GLNn|GLNc|TLNn|TLNc|num_contacts|contacts|CCBond\n')
             for ID_counter, ijrs in rep_ID_ent.items():
 
                 ID, counter = ID_counter
+                chain = chain_info.get(ID, 'A')  # Get chain for this ID, default to 'A'
 
                 for ijr in ijrs:
 
@@ -739,9 +757,29 @@ class ClusterNativeEntanglements:
 
                     num_nc = int(ijr[0])
 
-                    gn, gc = entanglement_partial_g_data[new_ijr]
+                    gn, gc, GLNn, GLNc, TLNn, TLNc, crossingsN_stored, crossingsC_stored = entanglement_partial_g_data[new_ijr]
                     gn = float(gn)
                     gc = float(gc)
+                    GLNn = int(GLNn)
+                    GLNc = int(GLNc)
+                    TLNn = int(TLNn)
+                    TLNc = int(TLNc)
+                    
+                    # Separate crossings into N and C terminal
+                    all_crossings = list(ijr[3:-1])
+                    crossingsN = []
+                    crossingsC = []
+                    i_val = int(ijr[1])
+                    j_val = int(ijr[2])
+                    for cross in all_crossings:
+                        cross_resid = int(cross[1:])
+                        if cross_resid < i_val:
+                            crossingsN.append(cross)
+                        elif cross_resid > j_val:
+                            crossingsC.append(cross)
+                    
+                    crossingsN_str = ','.join(crossingsN) if crossingsN else ''
+                    crossingsC_str = ','.join(crossingsC) if crossingsC else ''
 
                     ## check for disulfide bonds
                     CCBond_flag = False
@@ -751,8 +789,7 @@ class ClusterNativeEntanglements:
                         if check1 in ijr[-1] or check2 in ijr[-1]:
                             CCBond_flag = True
 
-                    #line = f"{ID}|{(int(ijr[1]), int(ijr[2]), *ijr[3:-1])}|{gn:.5f}|{gc:.5f}|{num_nc}|{ijr[-1]}|{CCBond_flag}"
-                    line = f"{ID}|{int(ijr[1])}|{int(ijr[2])}|{','.join(ijr[3:-1])}|{gn:.5f}|{gc:.5f}|{num_nc}|{ijr[-1]}|{CCBond_flag}"
+                    line = f"{ID}|{chain}|{int(ijr[1])}|{int(ijr[2])}|{crossingsN_str}|{crossingsC_str}|{gn:.5f}|{gc:.5f}|{GLNn}|{GLNc}|{TLNn}|{TLNc}|{num_nc}|{ijr[-1]}|{CCBond_flag}"
                     #print(line)
                     f.write(f"{line}\n")
         print(f'SAVED: {outfilepath}')
