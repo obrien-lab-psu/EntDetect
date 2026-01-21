@@ -1566,7 +1566,7 @@ class GaussianEntanglement:
 
         new_df = {'ID':[], 'chain':[], 'i':[], 'j':[], 'crossingsN':[], 'crossingsC':[], 'gn':[], 'gc':[], 'GLNn':[], 'GLNc':[], 'TLNn':[], 'TLNc':[], 'CCbond':[], 'ENT':[], 'Quality':[], 'Reason':[]}
         for rowi, row in df.iterrows():
-            print(row)
+            # print(row)
             ID = row['ID']
             chain = row['chain']
             i = row['i']
