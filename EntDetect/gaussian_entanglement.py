@@ -1497,28 +1497,34 @@ class GaussianEntanglement:
         else:
             raise ValueError(f'Mapping file {mapping} could not be found!')
 
-        new_df = {'ID':[], 'chain':[], 'i':[], 'j':[], 'c':[], 'gn':[], 'gc':[], 'Gn':[], 'Gc':[], 'CCbond':[], 'ENT':[]}
+        new_df = {'ID':[], 'chain':[], 'i':[], 'j':[], 'crossingsN':[], 'crossingsC':[], 'gn':[], 'gc':[], 'GLNn':[], 'GLNc':[], 'TLNn':[], 'TLNc':[], 'CCbond':[], 'ENT':[]}
         for rowi, row in df.iterrows():
             #print(row)
             ID = row['ID']
             chain = row['chain']
             i = row['i']
             j = row['j']
-            if isinstance(row['c'], float) or row['c'] == '':
-                r = ['']
-                ENT = False
-                crossings = []
-            else:
-                r = row['c'].split(',')
-                ENT = row['ENT']
-                crossings = [int(c[1:]) for c in r]
+            
+            # Parse crossings from crossingsN and crossingsC
+            crossingsN = row['crossingsN'] if pd.notna(row['crossingsN']) and row['crossingsN'] != '' and row['crossingsN'] != '?' else ''
+            crossingsC = row['crossingsC'] if pd.notna(row['crossingsC']) and row['crossingsC'] != '' and row['crossingsC'] != '?' else ''
+            
+            rN = crossingsN.split(',') if crossingsN else []
+            rC = crossingsC.split(',') if crossingsC else []
+            r = rN + rC
+            
+            ENT = row['ENT']
+            crossings = [int(c[1:]) for c in r if c != '']
+            
             gn = row['gn']
             gc = row['gc']
-            Gn = row['Gn']
-            Gc = row['Gc']
+            GLNn = row['GLNn']
+            GLNc = row['GLNc']
+            TLNn = row['TLNn']
+            TLNc = row['TLNc']
             CCbond = row['CCbond']
             key_res = [i, j] + crossings
-            #print(ID, i, j, r, crossings, gn, gc, Gn, Gc, CCbond, ENT, key_res)
+            #print(ID, i, j, r, crossings, gn, gc, GLNn, GLNc, TLNn, TLNc, CCbond, ENT, key_res)
             
             mapped = True
             for res in key_res:
@@ -1531,11 +1537,14 @@ class GaussianEntanglement:
                 new_df['chain'] += [chain]
                 new_df['i'] += [i]
                 new_df['j'] += [j]
-                new_df['c'] += [','.join(r)]
+                new_df['crossingsN'] += [crossingsN]
+                new_df['crossingsC'] += [crossingsC]
                 new_df['gn'] += [gn]
                 new_df['gc'] += [gc]
-                new_df['Gn'] += [Gn]
-                new_df['Gc'] += [Gc]
+                new_df['GLNn'] += [GLNn]
+                new_df['GLNc'] += [GLNc]
+                new_df['TLNn'] += [TLNn]
+                new_df['TLNc'] += [TLNc]
                 new_df['CCbond'] += [CCbond]
                 new_df['ENT'] += [ENT]
             else:
@@ -1555,25 +1564,32 @@ class GaussianEntanglement:
         avg_pLDDT, pLDDT_df = self.average_pLDDT(pdb)
         #print(f'avg_pLDDT: {avg_pLDDT}\n{pLDDT_df}')
 
-        new_df = {'ID':[], 'chain':[], 'i':[], 'j':[], 'c':[], 'gn':[], 'gc':[], 'Gn':[], 'Gc':[], 'CCbond':[], 'ENT':[], 'Quality':[], 'Reason':[]}
+        new_df = {'ID':[], 'chain':[], 'i':[], 'j':[], 'crossingsN':[], 'crossingsC':[], 'gn':[], 'gc':[], 'GLNn':[], 'GLNc':[], 'TLNn':[], 'TLNc':[], 'CCbond':[], 'ENT':[], 'Quality':[], 'Reason':[]}
         for rowi, row in df.iterrows():
-            #print(row)
+            print(row)
             ID = row['ID']
             chain = row['chain']
             i = row['i']
             j = row['j']
-            if isinstance(row['c'], float):
-                r = ['']
-                ENT = False
-            else:
-                r = row['c'].split(',')
-                ENT = row['ENT']
+            
+            # Parse crossings from crossingsN and crossingsC
+            crossingsN = row['crossingsN'] if pd.notna(row['crossingsN']) and row['crossingsN'] != '' and row['crossingsN'] != '?' else ''
+            crossingsC = row['crossingsC'] if pd.notna(row['crossingsC']) and row['crossingsC'] != '' and row['crossingsC'] != '?' else ''
+            
+            rN = crossingsN.split(',') if crossingsN else []
+            rC = crossingsC.split(',') if crossingsC else []
+            # Filter out empty strings from combined list
+            r = [x for x in (rN + rC) if x != '']
+            
+            ENT = row['ENT']
             gn = row['gn']
             gc = row['gc']
-            Gn = row['Gn']
-            Gc = row['Gc']
+            GLNn = row['GLNn']
+            GLNc = row['GLNc']
+            TLNn = row['TLNn']
+            TLNc = row['TLNc']
             CCbond = row['CCbond']
-            #print(ID, i, j, r, gn, gc, Gn, Gc, CCbond, ENT)
+            #print(ID, i, j, r, gn, gc, GLNn, GLNc, TLNn, TLNc, CCbond, ENT)
 
 
             # (1) check if both i and j have pLDDt >= 70. if so continue else completely ignore the ent
@@ -1585,11 +1601,14 @@ class GaussianEntanglement:
                     new_df['chain'] += [chain]
                     new_df['i'] += [i]
                     new_df['j'] += [j]
-                    new_df['c'] += [','.join(r)]
+                    new_df['crossingsN'] += [crossingsN]
+                    new_df['crossingsC'] += [crossingsC]
                     new_df['gn'] += [gn]
                     new_df['gc'] += [gc]
-                    new_df['Gn'] += [Gn]
-                    new_df['Gc'] += [Gc]
+                    new_df['GLNn'] += [GLNn]
+                    new_df['GLNc'] += [GLNc]
+                    new_df['TLNn'] += [TLNn]
+                    new_df['TLNc'] += [TLNc]
                     new_df['CCbond'] += [CCbond]
                     new_df['ENT'] += [ENT]
                     new_df['Quality'] += ['High']
@@ -1601,11 +1620,14 @@ class GaussianEntanglement:
                 new_df['chain'] += [chain]
                 new_df['i'] += [i]
                 new_df['j'] += [j]
-                new_df['c'] += [','.join(r)]
+                new_df['crossingsN'] += [crossingsN]
+                new_df['crossingsC'] += [crossingsC]
                 new_df['gn'] += [gn]
                 new_df['gc'] += [gc]
-                new_df['Gn'] += [Gn]
-                new_df['Gc'] += [Gc]
+                new_df['GLNn'] += [GLNn]
+                new_df['GLNc'] += [GLNc]
+                new_df['TLNn'] += [TLNn]
+                new_df['TLNc'] += [TLNc]
                 new_df['CCbond'] += [CCbond]
                 new_df['ENT'] += [ENT]
                 new_df['Quality'] += ['Low']
@@ -1675,17 +1697,24 @@ class GaussianEntanglement:
             HQ_crossings = HQ_Ccrossings + HQ_Ncrossings
             HQ_crossings = np.asarray(HQ_crossings, dtype=str)
             #print(f'HQ_crossings: {HQ_crossings}')
+            
+            # Separate HQ crossings into N and C terminal
+            HQ_crossingsN = ','.join(HQ_Ncrossings) if len(HQ_Ncrossings) > 0 else ''
+            HQ_crossingsC = ','.join(HQ_Ccrossings) if len(HQ_Ccrossings) > 0 else ''
 
             if len(HQ_crossings) != 0:
                     new_df['ID'] += [ID]
                     new_df['chain'] += [chain]
                     new_df['i'] += [i]
                     new_df['j'] += [j]
-                    new_df['c'] += [','.join(HQ_crossings)]
+                    new_df['crossingsN'] += [HQ_crossingsN]
+                    new_df['crossingsC'] += [HQ_crossingsC]
                     new_df['gn'] += [gn]
                     new_df['gc'] += [gc]
-                    new_df['Gn'] += [Gn]
-                    new_df['Gc'] += [Gc]
+                    new_df['GLNn'] += [GLNn]
+                    new_df['GLNc'] += [GLNc]
+                    new_df['TLNn'] += [TLNn]
+                    new_df['TLNc'] += [TLNc]
                     new_df['CCbond'] += [CCbond]
                     new_df['ENT'] += [ENT]
                     new_df['Quality'] += ['High']
@@ -1696,11 +1725,14 @@ class GaussianEntanglement:
                 new_df['chain'] += [chain]
                 new_df['i'] += [i]
                 new_df['j'] += [j]
-                new_df['c'] += [','.join(r)]
+                new_df['crossingsN'] += [crossingsN]
+                new_df['crossingsC'] += [crossingsC]
                 new_df['gn'] += [gn]
                 new_df['gc'] += [gc]
-                new_df['Gn'] += [Gn]
-                new_df['Gc'] += [Gc]
+                new_df['GLNn'] += [GLNn]
+                new_df['GLNc'] += [GLNc]
+                new_df['TLNn'] += [TLNn]
+                new_df['TLNc'] += [TLNc]
                 new_df['CCbond'] += [CCbond]
                 new_df['ENT'] += [ENT]
                 new_df['Quality'] += ['Low']
