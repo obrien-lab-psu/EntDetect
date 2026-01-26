@@ -51,7 +51,7 @@ class GaussianEntanglement:
     """
     Gaussian Entanglement Class for calculating entanglements in protein structures derived from both experiments and AlphaFold. 
     """
-    def __init__(self, g_threshold: float = 0.6, density: float = 0.0, Calpha: bool = False, CG: bool = False, nproc: int = 10) -> None:
+    def __init__(self, g_threshold: float = 0.6, density: float = 0.0, Calpha: bool = False, CG: bool = False, nproc: int = 10, ent_detection_method: int = 2) -> None:
         """
         Constructor for GaussianEntanglement class.
 
@@ -65,6 +65,11 @@ class GaussianEntanglement:
             Whether to use C-alpha atoms or heavy-atoms, by default False
         CG : bool, optional
             Whether the CG model was used to generate the simulations or structures
+        ent_detection_method : int, optional
+            Method to define ENT status of a raw NCLE:
+            1 = any nonzero GLN for either termini
+            2 = any nonzero TLN for either termini (default)
+            3 = both GLN and TLN must have nonzero for same termini
         """
 
         self.g_threshold = g_threshold
@@ -72,6 +77,7 @@ class GaussianEntanglement:
         self.Calpha = Calpha
         self.CG = CG
         self.nproc = nproc
+        self.ent_detection_method = ent_detection_method
 
         self.change_codes = {'L-C~': 'loss of linking number & switched linking chirality', 
                         'L-C#': 'loss of linking number & no change of linking chirality', 
@@ -79,6 +85,43 @@ class GaussianEntanglement:
                         'L+C#': 'gain of linking number & no change of linking chirality', 
                         'L#C~': 'no change of linking number & switched linking chirality', 
                         'L#C#': 'no change'}
+    ##########################################################################################################################################################
+
+    ##########################################################################################################################################################
+    def determine_ent_status(self, gln_n: float, gln_c: float, tln_n: int, tln_c: int) -> bool:
+        """
+        Determine if a native contact is entangled based on the selected detection method.
+        
+        Parameters
+        ----------
+        gln_n : float
+            Gaussian linking number for N-terminus
+        gln_c : float
+            Gaussian linking number for C-terminus
+        tln_n : int
+            Topological linking number for N-terminus
+        tln_c : int
+            Topological linking number for C-terminus
+        
+        Returns
+        -------
+        bool
+            True if entangled according to the selected method, False otherwise
+        """
+        if self.ent_detection_method == 1:
+            # Any nonzero GLN for either termini
+            return (gln_n != 0) or (gln_c != 0)
+        elif self.ent_detection_method == 2:
+            # Any nonzero TLN for either termini (default)
+            return (tln_n != 0) or (tln_c != 0)
+        elif self.ent_detection_method == 3:
+            # Both GLN and TLN must have nonzero for same termini
+            # Both N, both C, or both N and C
+            n_both = (gln_n != 0) and (tln_n != 0)
+            c_both = (gln_c != 0) and (tln_c != 0)
+            return n_both or c_both
+        else:
+            raise ValueError(f"Invalid ent_detection_method: {self.ent_detection_method}. Must be 1, 2, or 3.")
     ##########################################################################################################################################################
 
     ##########################################################################################################################################################
@@ -339,17 +382,13 @@ class GaussianEntanglement:
                 # print(f'Filtered crossings after checking termini and loop buffers: {filtered_crossingN_resids}')
 
                 if len(filtered_crossingN_resids) > 1:
-                    # check the distance between each pair of residues moving out from the loop base. If a pair is less than 10 residues apart, remove both crossings
-                    results = []
-                    k = 0
-                    while k < len(filtered_crossingN_resids):
-                        if k == len(filtered_crossingN_resids) - 1:
+                    # check the distance between each pair of residues. If a pair is less than 10 residues apart, remove both crossings
+                    # Use a greedy approach: iterate and keep crossings that are >=10 apart from the previous kept crossing
+                    results = [filtered_crossingN_resids[0]]
+                    for k in range(1, len(filtered_crossingN_resids)):
+                        # Check if current crossing is >= 10 away from the last kept crossing
+                        if abs(abs(filtered_crossingN_resids[k]) - abs(results[-1])) >= 10:
                             results.append(filtered_crossingN_resids[k])
-                            break
-                        # Compare the current pair
-                        if abs(abs(filtered_crossingN_resids[k]) - abs(filtered_crossingN_resids[k + 1])) >= 10:
-                            results.extend([filtered_crossingN_resids[k], filtered_crossingN_resids[k + 1]])
-                        k += 2  # Move to the next pair
                     filtered_crossingN_resids = results
 
                 crossingN = []
@@ -379,17 +418,13 @@ class GaussianEntanglement:
 
                 # print(f'Filtered crossings after checking termini and loop buffers: {filtered_crossingC_resids}')
                 if len(filtered_crossingC_resids) > 1:
-                    # check the distance between each pair of residues moving out from the loop base. If a pair is less than 10 residues apart, remove both crossings
-                    results = []
-                    k = 0
-                    while k < len(filtered_crossingC_resids):
-                        if k == len(filtered_crossingC_resids) - 1:
+                    # check the distance between each pair of residues. If a pair is less than 10 residues apart, remove both crossings
+                    # Use a greedy approach: iterate and keep crossings that are >=10 apart from the previous kept crossing
+                    results = [filtered_crossingC_resids[0]]
+                    for k in range(1, len(filtered_crossingC_resids)):
+                        # Check if current crossing is >= 10 away from the last kept crossing
+                        if abs(abs(filtered_crossingC_resids[k]) - abs(results[-1])) >= 10:
                             results.append(filtered_crossingC_resids[k])
-                            break
-                        # Compare the current pair
-                        if abs(abs(filtered_crossingC_resids[k]) - abs(filtered_crossingC_resids[k + 1])) >= 10:
-                            results.extend([filtered_crossingC_resids[k], filtered_crossingC_resids[k + 1]])
-                        k += 2  # Move to the next pair
                     filtered_crossingC_resids = results
 
                 crossingC = []
@@ -720,7 +755,7 @@ class GaussianEntanglement:
                         outdf['CCbond'] += [CCbond]
                     
                     outdf = pd.DataFrame(outdf)
-                    outdf['ENT'] = (outdf['TLNn'] != 0) | (outdf['TLNc'] != 0)
+                    outdf['ENT'] = outdf.apply(lambda row: self.determine_ent_status(row['GLNn'], row['GLNc'], row['TLNn'], row['TLNc']), axis=1)
                     outdf = self.mark_absent_crossings(outdf)
                     outdf.to_csv(outfile, sep='|', index=False)
                     print(f'SAVED: {outfile}')
@@ -832,7 +867,7 @@ class GaussianEntanglement:
         #         ENT.append(False)
         # outdf['ENT'] = ENT
         # print(f'outdf:\n{outdf.to_string()}')
-        outdf['ENT'] = (outdf['TLNn'] != 0) | (outdf['TLNc'] != 0)
+        outdf['ENT'] = outdf.apply(lambda row: self.determine_ent_status(row['GLNn'], row['GLNc'], row['TLNn'], row['TLNc']), axis=1)
         outdf = self.mark_absent_crossings(outdf)
         print(f'outdf:\n{outdf.to_string()}')
         outdf.to_csv(outfile, sep='|', index=False)
