@@ -2,7 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name='EntDetect',
-    version='0.1',
+    version='0.2.0',
+    description='Entanglement Detection in Protein Structures',
     packages=find_packages(),
     install_requires=[
         'biopython',
