@@ -756,7 +756,6 @@ class GaussianEntanglement:
                     
                     outdf = pd.DataFrame(outdf)
                     outdf['ENT'] = outdf.apply(lambda row: self.determine_ent_status(row['GLNn'], row['GLNc'], row['TLNn'], row['TLNc']), axis=1)
-                    outdf = self.mark_absent_crossings(outdf)
                     outdf.to_csv(outfile, sep='|', index=False)
                     print(f'SAVED: {outfile}')
                     ent_result = pd.read_csv(outfile, sep='|', dtype={'crossingsN': str, 'crossingsC': str})
@@ -868,7 +867,6 @@ class GaussianEntanglement:
         # outdf['ENT'] = ENT
         # print(f'outdf:\n{outdf.to_string()}')
         outdf['ENT'] = outdf.apply(lambda row: self.determine_ent_status(row['GLNn'], row['GLNc'], row['TLNn'], row['TLNc']), axis=1)
-        outdf = self.mark_absent_crossings(outdf)
         print(f'outdf:\n{outdf.to_string()}')
         outdf.to_csv(outfile, sep='|', index=False)
         print(f'SAVED: {outfile}')
@@ -878,14 +876,6 @@ class GaussianEntanglement:
         return {'outfile':outfile, 'ent_result':outdf}
     ##########################################################################################################################################################
 
-    ##########################################################################################################################################################
-    def mark_absent_crossings(self, df: pd.DataFrame) -> pd.DataFrame:
-        for idx, row in df.iterrows():
-            if row['ENT'] == True and row['crossingsN'] == '' and row['GLNn'] != 0:
-                df.at[idx, 'crossingsN'] = '?'
-            if row['ENT'] == True and row['crossingsC'] == '' and row['GLNc'] != 0:
-                df.at[idx, 'crossingsC'] = '?'
-        return df
     ##########################################################################################################################################################
 
     ##########################################################################################################################################################

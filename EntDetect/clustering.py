@@ -176,8 +176,6 @@ class ClusterNativeEntanglements:
         if 'Quality' in GE_data.keys():
             GE_data = GE_data[GE_data['Quality'] == 'High'].reset_index(drop=True)
         
-        ## replace any ? with -100000 to avoid issues with splitting
-        GE_data = GE_data.replace('?', '-100000')
         GE_data = GE_data.replace(np.nan, '', regex=True)
         print(GE_data)
       
