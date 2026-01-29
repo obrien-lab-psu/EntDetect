@@ -33,7 +33,7 @@ class FeatureGen:
 
         ## parse lines to get native contacts, crossings,
         if os.path.exists(cluster_file):
-            self.GE_data = pd.read_csv(cluster_file, sep='|', dtype={'c': str})
+            self.GE_data = pd.read_csv(cluster_file, sep='|', dtype={'c': str, 'crossingsN': str, 'crossingsC': str})
             #print(self.GE_data)
         else:
             raise ValueError(f"{self.cluster_file} does not exits")
