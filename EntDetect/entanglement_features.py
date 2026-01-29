@@ -139,9 +139,12 @@ class FeatureGen:
                     'NC':[],
                     'NC_wbuff':[],
                     'NC_region':[],
-                    'crossings':[], 
-                    'crossings_wbuff':[], 
-                    'crossings_region':[],
+                    'crossingsN':[], 
+                    'crossingsC':[],
+                    'crossingsN_wbuff':[], 
+                    'crossingsC_wbuff':[],
+                    'crossingsN_region':[],
+                    'crossingsC_region':[],
                     'ent_region':[],
                     'loopsize': [], 
                     'num_zipper_nc':[], 
@@ -194,7 +197,8 @@ class FeatureGen:
 
             # Parse crossings from crossingsN and crossingsC columns  
             # Each column contains comma-separated crossing residues like "+109" or "+92,+93,+94"
-            pdb_crossing_res_core = []
+            pdb_crossing_res_core_N = []
+            pdb_crossing_res_core_C = []
             for col in ['crossingsN', 'crossingsC']:
                 if col in row.index and pd.notna(row[col]) and row[col] != '':
                     crossings_str = str(row[col])
@@ -202,8 +206,15 @@ class FeatureGen:
                         if cross:  # Skip empty strings
                             # Remove +/- sign and convert to int, handling potential .0 float artifacts
                             cross_num = cross[1:].split('.')[0]  # Remove sign and any decimal part
-                            pdb_crossing_res_core.append(int(cross_num))
-            #print(f'pdb_crossing_res_core: {pdb_crossing_res_core}')
+                            cross_int = int(cross_num)
+                            if col == 'crossingsN':
+                                pdb_crossing_res_core_N.append(cross_int)
+                            else:
+                                pdb_crossing_res_core_C.append(cross_int)
+            
+            # Combined list for backward compatibility in calculations
+            pdb_crossing_res_core = pdb_crossing_res_core_N + pdb_crossing_res_core_C
+            #print(f'pdb_crossing_res_core_N: {pdb_crossing_res_core_N}, pdb_crossing_res_core_C: {pdb_crossing_res_core_C}')
 
             uent_df['gene'] += [gene]
             uent_df['PDB'] += [pdbid]
@@ -286,24 +297,40 @@ class FeatureGen:
 
             #########################################################################
             #get PDB crossings and those +/- rbuffer along the primary structure
-            if pdb_crossing_res_core:
-                pdb_crossing_res = np.hstack([np.arange(int(x) - rbuffer, int(x) + rbuffer + 1) for x in pdb_crossing_res_core]).tolist()
+            if pdb_crossing_res_core_N:
+                pdb_crossing_res_N = np.hstack([np.arange(int(x) - rbuffer, int(x) + rbuffer + 1) for x in pdb_crossing_res_core_N]).tolist()
             else:
-                pdb_crossing_res = []
-            #print(f'pdb_crossing_res: {pdb_crossing_res}')
-            #print(f'pdb_crossing_res_core: {pdb_crossing_res_core}')
+                pdb_crossing_res_N = []
+                
+            if pdb_crossing_res_core_C:
+                pdb_crossing_res_C = np.hstack([np.arange(int(x) - rbuffer, int(x) + rbuffer + 1) for x in pdb_crossing_res_core_C]).tolist()
+            else:
+                pdb_crossing_res_C = []
+                
+            # Combined for overall calculations
+            pdb_crossing_res = pdb_crossing_res_N + pdb_crossing_res_C
+            #print(f'pdb_crossing_res_N: {pdb_crossing_res_N}')
+            #print(f'pdb_crossing_res_C: {pdb_crossing_res_C}')
+            #print(f'pdb_crossing_res_core_N: {pdb_crossing_res_core_N}, pdb_crossing_res_core_C: {pdb_crossing_res_core_C}')
 
             pdb_crossing_list += pdb_crossing_res
             pdb_crossing_core_list += pdb_crossing_res_core
-            uent_df['crossings'] += [",".join([str(c) for c in pdb_crossing_res_core])]
-            uent_df['crossings_wbuff'] += [",".join([str(c) for c in pdb_crossing_res])]
+            
+            # Store separated crossings
+            uent_df['crossingsN'] += [",".join([str(c) for c in pdb_crossing_res_core_N])]
+            uent_df['crossingsC'] += [",".join([str(c) for c in pdb_crossing_res_core_C])]
+            uent_df['crossingsN_wbuff'] += [",".join([str(c) for c in pdb_crossing_res_N])]
+            uent_df['crossingsC_wbuff'] += [",".join([str(c) for c in pdb_crossing_res_C])]
 
             ### Get the crossing region using heavy atom distances
-            crossing_region = self.find_neighboring_residues(self.traj, pdb_crossing_res)
-            #print(f'crossing_region: {crossing_region}')
-            uent_df['crossings_region'] += [",".join([str(r) for r in crossing_region])]
+            crossing_region_N = self.find_neighboring_residues(self.traj, pdb_crossing_res_N)
+            crossing_region_C = self.find_neighboring_residues(self.traj, pdb_crossing_res_C)
+            #print(f'crossing_region_N: {crossing_region_N}')
+            #print(f'crossing_region_C: {crossing_region_C}')
+            uent_df['crossingsN_region'] += [",".join([str(r) for r in crossing_region_N])]
+            uent_df['crossingsC_region'] += [",".join([str(r) for r in crossing_region_C])]
 
-            num_cross_nearest_neighbors = len(crossing_region)
+            num_cross_nearest_neighbors = len(crossing_region_N) + len(crossing_region_C)
             #print(f'num_cross_nearest_neighbors: {num_cross_nearest_neighbors}')
             uent_df['num_cross_nearest_neighbors'] += [num_cross_nearest_neighbors]
             #########################################################################
@@ -355,8 +382,9 @@ class FeatureGen:
             ### Get entangled residues = NC_region U crossing_region
             #print('Get total entangled region residues')
             #print(f'NC_region: {NC_region}')
-            #print(f'crossing_region: {crossing_region}')
-            ent_region = set(NC_region).union(set(crossing_region))
+            #print(f'crossing_region_N: {crossing_region_N}')
+            #print(f'crossing_region_C: {crossing_region_C}')
+            ent_region = set(NC_region).union(set(crossing_region_N)).union(set(crossing_region_C))
             ent_region = ent_region.union(set(pdb_NC))
             ent_region = ent_region.union(set(pdb_crossing_res))
 
