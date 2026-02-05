@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='EntDetect',
-    version='1.1.1',
+    version='1.1.2',
     description='Entanglement Detection in Protein Structures',
     packages=find_packages(),
     install_requires=[

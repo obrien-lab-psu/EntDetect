@@ -78,6 +78,7 @@ class GaussianEntanglement:
         self.CG = CG
         self.nproc = nproc
         self.ent_detection_method = ent_detection_method
+        print(f'GaussianEntanglement initialized with g_threshold: {g_threshold}, density: {density}, Calpha: {Calpha}, CG: {CG}, nproc: {nproc}, ent_detection_method: {ent_detection_method}')
 
         self.change_codes = {'L-C~': 'loss of linking number & switched linking chirality', 
                         'L-C#': 'loss of linking number & no change of linking chirality', 
@@ -173,9 +174,11 @@ class GaussianEntanglement:
         loop_Nthread_thresh = loop_thread_thresh[0]
         loop_Cthread_thresh = loop_thread_thresh[1]
         print(f'Finding entanglements with Nterm_thresh: {Nterm_thresh}, Cterm_thresh: {Cterm_thresh}, loop_Nthread_thresh: {loop_Nthread_thresh}, loop_Cthread_thresh: {loop_Cthread_thresh}')
+        print(f'Coordinates shape: {coor.shape}\n{coor[:10]}\n...\n{coor[-10:]}')
 
         # make native contact contact map
         dist_matrix = squareform(pdist(coor))
+  
         if self.Calpha == False:
             native_cmap = np.where(dist_matrix <= 4.5, 1, 0) # if true then 1 will appear otherwise zero
         elif self.Calpha == True:
@@ -190,8 +193,10 @@ class GaussianEntanglement:
         resid_pairs = list(itertools.product(np.arange(num_res), np.arange(num_res)))
 
         for pair in resid_pairs:
+            pair0_resid = resid_index_to_resid[pair[0]]
+            pair1_resid = resid_index_to_resid[pair[1]]
             # check that the resid are greater than 4 apart
-            if abs(resid_index_to_resid[pair[1]] - resid_index_to_resid[pair[0]]) > 4:
+            if abs(pair1_resid - pair0_resid) > 4:
                 if pair[0] in resid_index_to_ref_allatoms_idx and pair[1] in resid_index_to_ref_allatoms_idx:
                     res1_atoms = resid_index_to_ref_allatoms_idx[pair[0]]
                     res2_atoms = resid_index_to_ref_allatoms_idx[pair[1]]
@@ -199,11 +204,16 @@ class GaussianEntanglement:
                     res1_atoms_end = max(res1_atoms)
                     res2_atoms_start = min(res2_atoms)
                     res2_atoms_end = max(res2_atoms)
-                    contact = np.sum(native_cmap[res1_atoms_start:res1_atoms_end + 1, res2_atoms_start:res2_atoms_end + 1])
+                    sub_array = native_cmap[res1_atoms_start:res1_atoms_end + 1, res2_atoms_start:res2_atoms_end + 1]
+                    contact = np.sum(sub_array)
+                    dist_sub_array = dist_matrix[res1_atoms_start:res1_atoms_end + 1, res2_atoms_start:res2_atoms_end + 1]
+                    min_dist = np.min(dist_sub_array)
 
                     if contact > 0:
                         res_ncmap[pair[0], pair[1]] = 1
-                        #print(f'Found contact: {resid_index_to_resid[pair[0]]} & {resid_index_to_resid[pair[1]]}')        
+                        #print(f'Found contact: {pair0_resid} & {pair1_resid} with min dist: {min_dist}')        
+                    # else:
+                        # print(f'No contact: {pair0_resid} & {pair1_resid} with min dist: {min_dist}')
         del native_cmap
         native_cmap = res_ncmap 
 
@@ -600,10 +610,13 @@ class GaussianEntanglement:
 
         ## Get only the heavy atoms or CA atoms depending on what type of contact we are looking for
         if self.Calpha == False and self.CG == False:
+            print('All-atom model and contacts: Selecting all heavy atoms (no hydrogens) for entanglement calculations')
             ref_allatoms_dups = ref_univ.select_atoms("not name H* and protein")
         elif self.Calpha == True and self.CG == False:
+            print('All-atom model and Calpha contacts: Selecting only CA atoms for entanglement calculations')
             ref_allatoms_dups = ref_univ.select_atoms("name CA and protein")
         elif self.CG == True:
+            print('Coarse-grained model: Selecting all atoms for entanglement calculations')
             ref_allatoms_dups = ref_univ.select_atoms("all")
         #print(f'ref_allatoms_dups: {ref_allatoms_dups} {len(ref_allatoms_dups)}')
 
@@ -632,6 +645,7 @@ class GaussianEntanglement:
             assert len(check) == len(unique_indices), "You did not remove dup atoms!"
 
             ref_allatoms_unique = ref_allatoms_dups.select_atoms(f"segid {chain}")[unique_indices]
+            print(f'ref_allatoms_unique: {ref_allatoms_unique} {len(ref_allatoms_unique)}')
 
             ## select only those unique residue alpha carbons
             if self.CG == False:
