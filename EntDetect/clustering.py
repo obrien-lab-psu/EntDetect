@@ -244,7 +244,20 @@ class ClusterNativeEntanglements:
         for k,v in grouped_entanglement_data.items():
             #print(k,v)
             Step1_QC_counter += len(v)
-        print(f'CCBonds: {CCBonds}')
+        
+        # STEP 1 SUMMARY
+        print(f'\n{"="*100}')
+        print(f'STEP 1 SUMMARY: Data Loading and Grouping by Unique Crossing Sets')
+        print(f'{"="*100}')
+        print(f'Total raw entanglements loaded: {Step1_QC_counter}')
+        print(f'Number of protein IDs: {len(num_raw_ents)}')
+        for prot_id, count in sorted(num_raw_ents.items()):
+            print(f'  - {prot_id}: {count} raw entanglements')
+        print(f'Unique crossing patterns identified: {len(grouped_entanglement_data)}')
+        print(f'Disulfide bonds found: {len(CCBonds)}')
+        if CCBonds:
+            print(f'  - Disulfide bond pairs: {CCBonds}')
+        print()
 
         ### STEP 2 ################################################################################################################
         ############################################################################################
@@ -266,12 +279,24 @@ class ClusterNativeEntanglements:
 
             ent_data[ID].append((len(loops), minimum_loop_nc_i, minimum_loop_nc_j, *crossings, ';'.join(['-'.join([str(loop[0]), str(loop[1])]) for loop in loops])))
 
-        #print(f'Step 2a results')
+        # STEP 2a SUMMARY
+        print(f'{"="*100}')
+        print(f'STEP 2A SUMMARY: Minimal Loop Identification for Unique Crossing Sets')
+        print(f'{"="*100}')
         for ID, ents in ent_data.items():
             Step2a_QC_counter = 0
             for ent_i, ent in enumerate(ents):
                 #print(ID, ent_i, ent)
                 Step2a_QC_counter += ent[0]
+            
+            print(f'{ID}: {Step2a_QC_counter} raw entanglements grouped into {len(ents)} representative loops')
+            for ent_i, ent in enumerate(ents):
+                num_loops = ent[0]
+                loop_i, loop_j = ent[1], ent[2]
+                crossings = [str(c) for c in ent[3:-1]]
+                print(f'  Representative {ent_i+1}: Loop ({loop_i}, {loop_j}), ' +
+                      f'Crossings={crossings if crossings else "none"}, ' +
+                      f'Represents {num_loops} raw entanglement(s)')
 
             ## QC that the number of tracked entanglements after step 2a is still valid
             #print(f'Step2a_QC_counter: {Step2a_QC_counter} should = {num_raw_ents[ID]}')
@@ -280,7 +305,9 @@ class ClusterNativeEntanglements:
 
         ############################################################################################
         # Step 2b: 
-        print(f'\n# Step 2b')
+        print(f'{"="*100}')
+        print(f'STEP 2B: Merging of Entanglements Based on Crossing Proximity')
+        print(f'{"="*100}')
         merged_ents = []
         for ID, ents in ent_data.items():
             orig_ents = ents.copy()
@@ -421,7 +448,9 @@ class ClusterNativeEntanglements:
             #    print(ent_idx, ent)
 
             ### Update entanglement list with those that got merged
-            print(f'\n### Update entanglement dict with those that got merged\nNumber of merged pairs: {len(merged_ents)}')
+            print(f'\n  Processing {ID}: Analyzing {len(ents)} representative entanglements for merging...')
+            print(f'  Before merge: {len(ents)} representatives')
+            merge_count = 0
             while len(merged_ents) != 0:
                 pre_num_merged = len(merged_ents)
                 #print(f'# merged_ents: {pre_num_merged}')
@@ -433,6 +462,7 @@ class ClusterNativeEntanglements:
                             #print(f'FOUND MATCH for kept ent {ent_idx}')
                             ent_dict[ent_idx] += [m_ent[1]]
                             merged_ents.remove(m_ent)
+                            merge_count += 1
 
                 #print(f'# merged_ents: {len(merged_ents)}')
 
@@ -440,7 +470,8 @@ class ClusterNativeEntanglements:
                 if len(merged_ents) == pre_num_merged:
                     raise ValueError('Failed to find a match this cycle and entering infi loop')
                     
-            print(f'\n### merge ents to final and reform ent_data')
+            print(f'  After merge: {merge_count} merges completed')
+            print(f'  Reformatting entanglement data...')
             updated_ents = []
             for ent_idx, ent in ent_dict.items():
                 #print(ent_idx, ent)
@@ -459,22 +490,28 @@ class ClusterNativeEntanglements:
                 #print(uent)
                 Step2b_QC_counter += uent[0]
 
+            print(f'  Result: {len(updated_ents)} representative entanglements after merging (tracking {Step2b_QC_counter} total raw)')
+            print(updated_ents)
             ## QC that the number of tracked entanglements after step 2a is still valid
-            print(f'Step2b_QC_counter: {Step2b_QC_counter} should = {num_raw_ents[ID]}')
             if Step2b_QC_counter != num_raw_ents[ID]:
                 raise ValueError(f'The number of tracked entaglements after Step 2b {Step2b_QC_counter} != {num_raw_ents[ID]}')        
 
             ent_data[ID] = updated_ents
+        print()
 
         ### STEP 3 ################################################################################################################
         # Step 3
-        print(f'\n# Step 3')
+        print(f'{"="*100}')
+        print(f'STEP 3: Removing Duplicate Entanglements (Same Crossings, Different Loop Sizes)')
+        print(f'{"="*100}')
         for ID, processed_ents in ent_data.items():
+            print(f'  {ID}: Checking {len(processed_ents)} entanglements for duplicates...')
 
             comb_processed_ents = itertools.combinations(processed_ents, 2)
 
             keep_track_of_larger_proc_ent = []
             keep_track_of_shorter_proc_ent = []
+            removal_count = 0
 
             for each_processed_ent_pair in comb_processed_ents:
                 #print(f'\npair of ents: {each_processed_ent_pair}')
@@ -541,21 +578,25 @@ class ClusterNativeEntanglements:
                             keep_track_of_larger_proc_ent.append(longer_loop_ent_ijr)
                             keep_track_of_shorter_proc_ent.append(shorter_loop_ent_ijr)
         
-        #print(f'Step 3 results')
+        # STEP 3 FINAL SUMMARY
+        print(f'\nSTEP 3 RESULTS:')
         for ID, ents in ent_data.items():
             Step3_QC_counter = 0
             for ent in ents:
                 #print(ent)
                 Step3_QC_counter += ent[0]
             
+            print(f'  {ID}: {len(ents)} representative entanglements remaining (tracking {Step3_QC_counter} raw)')
             # QC to ensure number of raw ents was preserved after step 3
-            print(f'Step3_QC_counter: {Step3_QC_counter} should = {num_raw_ents[ID]}')
             if Step3_QC_counter != num_raw_ents[ID]:
                 raise ValueError(f'The number of tracked entaglements after Step 3 {Step3_QC_counter} != {num_raw_ents[ID]}')    
+        print()
 
         ### STEP 4 SPATIAL CLUSTERING ################################################################################################################
         # Step 4 prep
-        print(f'\n# Step 4 prep')
+        print(f'{"="*100}')
+        print(f'STEP 4 PREP: Grouping Entanglements by Number and Chirality of Crossings')
+        print(f'{"="*100}')
         for ID, new_ents in ent_data.items():
 
             for ent in new_ents:
@@ -567,11 +608,19 @@ class ClusterNativeEntanglements:
                 ID_num_chirality_key = f"{ID}_{number_of_crossings}_{chiralites}"
 
                 full_entanglement_data[ID_num_chirality_key].append(ent)
+        
+        print(f'\nGrouping Summary:')
+        for group_key in sorted(full_entanglement_data.keys()):
+            ents = full_entanglement_data[group_key]
+            print(f'  {group_key}: {len(ents)} entanglements')
+        print()
 
         reset_counter = []
 
         # Step 4
-        print(f'\n# Step 4')
+        print(f'{"="*100}')
+        print(f'STEP 4: Primary Structure Clustering Within Each Group')
+        print(f'{"="*100}')
         for ID_num_chiral in full_entanglement_data.keys():
             #print(ID_num_chiral)
             #ID = ID_num_chiral.split("_")[0]
@@ -589,6 +638,10 @@ class ClusterNativeEntanglements:
             cluster_count = 0
 
             pairwise_entanglements = list(itertools.combinations(full_entanglement_data[ID_num_chiral], 2))
+            
+            print(f'\n  Group: {ID_num_chiral}')
+            print(f'    Total entanglements: {len(full_entanglement_data[ID_num_chiral])}')
+            print(f'    Pairwise comparisons: {len(pairwise_entanglements)}')
 
             if pairwise_entanglements:
 
@@ -659,7 +712,7 @@ class ClusterNativeEntanglements:
                 next_cluster_count += 1
 
             # pick representative entanglement per cluster
-            #print(f'\nPick rep entanglements')
+            print(f'    Primary structure clusters formed: {len(clusters)}')
             for counter, ijr_values in clusters.items():
                 #print(f'\nCluster {counter} {ijr_values}')
 
@@ -705,11 +758,16 @@ class ClusterNativeEntanglements:
                 else:
                     #rep_ID_ent[f"{ID}_{split_cluster_counter}"].append(ijr_values[0])
                     rep_ID_ent[(ID, split_cluster_counter)].append(ijr_values[0])
+                    if counter == list(clusters.keys())[-1]:  # Print only for last cluster to avoid clutter
+                        num_single = sum(1 for c_vals in clusters.values() if len(c_vals) == 1)
+                        print(f'    Single-entanglement clusters: {num_single}')
                 
                 split_cluster_counter += 1
         
         ## QC Step 4 results
-        print(f'Step 4 results')
+        print(f'\n{"="*100}')
+        print(f'STEP 4 FINAL RESULTS: Primary Structure Clustering Summary')
+        print(f'{"="*100}')
         num_raw_ents_FINAL = {}
         for ID_counter, ijrs in rep_ID_ent.items():
             #print(ID_counter, ijrs)
@@ -725,12 +783,18 @@ class ClusterNativeEntanglements:
 
         ## check the final tracking of raw ents
         for ID, count in num_raw_ents.items():
-            if count != num_raw_ents_FINAL[ID]:
-                raise ValueError(f'The FINAL # of raw ents {num_raw_ents_FINAL[ID]} != the starting {count} for ID {ID}')
+            final_count = num_raw_ents_FINAL[ID]
+            num_clusters = len([ijrs for (c_id, _), ijrs in rep_ID_ent.items() if c_id == ID])
+            print(f'{ID}: {count} raw → {final_count} raw in {num_clusters} final clusters')
+            if count != final_count:
+                raise ValueError(f'The FINAL # of raw ents {final_count} != the starting {count} for ID {ID}')
+        print()
             
         ### STEP 5 OUTPUT FILE ################################################################################################################
         # Step 5
-        print(f'\nStep 5: Output file')
+        print(f'{"="*100}')
+        print(f'STEP 5: Writing Output File')
+        print(f'{"="*100}')
 
         ## set up the outdir for this calculation
         #outdir = f"{os.getcwd()}/{outdir}"
@@ -739,7 +803,6 @@ class ClusterNativeEntanglements:
             print(f"Creating directory: {outdir}")
 
         outfilepath = os.path.join(f'{outdir}', f'{outfile}')
-        #print(f'WRITING: {outfilepath}')
 
         with open(outfilepath, "w") as f:
 
@@ -792,6 +855,19 @@ class ClusterNativeEntanglements:
                     f.write(f"{line}\n")
         print(f'SAVED: {outfilepath}')
         outdf = pd.read_csv(outfilepath, sep='|')
+        
+        # FINAL CLUSTERING SUMMARY
+        print(f'\n{"="*100}')
+        print(f'CLUSTERING COMPLETE: Final Summary')
+        print(f'{"="*100}')
+        print(f'Total raw entanglements processed: {sum(num_raw_ents.values())}')
+        print(f'Total final representative entanglements: {len(outdf)}')
+        print(f'Compression ratio: {sum(num_raw_ents.values())/len(outdf):.2f}x (raw → final)')
+        print(f'Clustering by organism: {self.organism}')
+        print(f'Spatial distance cutoff: {self.cut_off}')
+        print(f'Output file: {outfilepath}')
+        print(f'{"="*100}\n')
+        
         return {'outfile':outfilepath, 'ent_result':outdf}
     ##########################################################################################################################################################
 ##########################################################################################################################################################
