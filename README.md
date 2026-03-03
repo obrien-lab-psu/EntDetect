@@ -35,6 +35,22 @@ Notes:
 - Run `conda env create` from the EntDetect repo root (the environment file uses `pip -e .`).
 - If you prefer installing into an existing env, use `pip install -e .` from the repo root.
 
+macOS (Miniconda) notes:
+- The default `environment.yml` is intended to work on both Linux and macOS via conda-forge.
+- If you hit solver/build issues on macOS, try:
+
+```bash
+conda env create -f environment-mac.yml
+conda activate entdetect
+```
+
+- On Apple Silicon, if a dependency is missing for `osx-arm64`, a common workaround is:
+
+```bash
+CONDA_SUBDIR=osx-64 conda env create -f environment-mac.yml
+conda activate entdetect
+```
+
 ## Quick Start
 
 ### Basic Order Parameter Calculation
@@ -66,164 +82,17 @@ python scripts/run_nativeNCLE.py \
   --organism Ecoli
 ```
 
-## Complete Workflow Scripts
-## Complete Workflow Scripts
+## Tutorial
 
-### 1. Order Parameter Analysis
+For step-by-step, runnable examples (including both all-atom vs C-alpha structure examples, and a bundled CG trajectory example), see:
 
-#### Simulation Trajectory Analysis (`run_OP_on_simulation_traj.py`)
-Calculate Q, G, and K order parameters for coarse-grained simulation trajectories:
+- [Documentation/tutorial_examples.md](Documentation/tutorial_examples.md)
 
-```bash
-python scripts/run_OP_on_simulation_traj.py \
-  --Traj 1 \
-  --PSF /path/to/structure.psf \
-  --DCD /path/to/trajectory.dcd \
-  --ID 1ZMR \
-  --COR /path/to/structure.cor \
-  --sec_elements /path/to/secondary_structure.txt \
-  --domain /path/to/domain_def.dat \
-  --outdir results/OP_analysis/ \
-  --start 0
-```
-
-**Outputs**: Q (native contacts), G (entanglement changes), K (mirror symmetry)
-
-### 2. Entanglement Analysis
-
-#### Native Entanglement Identification (`run_nativeNCLE.py`)
-Identify, cluster, and characterize native entanglements in protein structures:
+For all scripts, `--help` is the most up-to-date reference for required inputs:
 
 ```bash
-python scripts/run_nativeNCLE.py \
-  --struct /path/to/structure.pdb \
-  --outdir results/native_analysis/ \
-  --ID protein_name \
-  --organism Ecoli
-```
-
-**Outputs**: Native entanglements, high-quality filtered entanglements, clustered entanglements, entanglement features
-
-#### Non-Native Entanglement Clustering (`run_nonnative_entanglement_clustering.py`)
-Cluster non-native entanglements across multiple simulation trajectories:
-
-```bash
-python scripts/run_nonnative_entanglement_clustering.py \
-  --outdir results/nonnative_clustering/ \
-  --pkl_file_path /path/to/pkl/files/ \
-  --trajnum2pklfile_path /path/to/mapping.txt \
-  --traj_dir_prefix /path/to/trajectories/
-```
-
-### 3. Resolution Conversion
-
-#### Coarse-Graining and Back-Mapping (`run_change_resolution.py`)
-Convert between all-atom and coarse-grained representations:
-
-```bash
-python scripts/run_change_resolution.py \
-  --outdir results/coarse_graining/ \
-  --pdbfile /path/to/structure.pdb \
-  --nscal 2 \
-  --domain_file /path/to/domain_def.dat \
-  --ID protein_name
-```
-
-**Outputs**: Coarse-grained structure, force field files, back-mapped all-atom structure
-
-### 4. Markov State Model Construction
-
-#### MSM Building (`run_MSM.py`)
-Build Markov State Models from ensemble simulation data:
-
-```bash
-python scripts/run_MSM.py \
-  --outdir results/MSM/ \
-  --ID protein_msm \
-  --OPpath /path/to/OP/data/ \
-  --start 0 \
-  --n_large_states 10 \
-  --lagtime 20 \
-  --rm_traj_list 65 75 155
-```
-
-**Outputs**: MSM states, transition matrices, representative structures
-
-### 5. Experimental Comparison
-
-#### Simulation-Experiment Consistency (`run_compare_sim2exp.py`)
-Compare MSM states with LiP-MS and XL-MS experimental data:
-
-```bash
-python scripts/run_compare_sim2exp.py \
-  --msm_data_file /path/to/msm_data.csv \
-  --meta_dist_file /path/to/meta_distances.csv \
-  --LiPMS_exp_file /path/to/LiPMS_data.csv \
-  --XLMS_exp_file /path/to/XLMS_data.csv \
-  --sasa_data_file /path/to/sasa_data.csv \
-  --dist_data_file /path/to/distances.csv \
-  --cluster_data_file /path/to/clusters.csv \
-  --OPpath /path/to/OP/ \
-  --AAdcd_dir /path/to/trajectories/ \
-  --native_AA_pdb /path/to/native.pdb \
-  --state_idx_list 1 2 3 4 5 \
-  --prot_len 390 \
-  --last_num_frames 100 \
-  --rm_traj_list 65 75 155 \
-  --native_state_idx 0 \
-  --outdir results/consistency/ \
-  --ID protein_comparison \
-  --start 0 \
-  --end 1000 \
-  --stride 1 \
-  --num_perm 1000 \
-  --n_boot 100 \
-  --lag_frame 20 \
-  --nproc 10
-```
-
-### 6. Population-Level Analysis
-
-#### Proteome Logistic Regression (`run_population_modeling.py`)
-Analyze entanglement associations across heterogeneous protein datasets:
-
-```bash
-python scripts/run_population_modeling.py \
-  --dataframe_files /path/to/proteome/data/ \
-  --outdir results/population_analysis/ \
-  --gene_list /path/to/gene_list.txt \
-  --tag proteome_study \
-  --reg_formula "cut_C_Rall ~ AA + region"
-```
-
-#### Monte Carlo Analysis (`run_montecarlo.py`)
-Identify candidate proteins with poor per-protein statistics using Monte Carlo methods:
-
-```bash
-python scripts/run_montecarlo.py \
-  --dataframe_files /path/to/proteome/data/ \
-  --outpath results/monte_carlo/ \
-  --gene_list /path/to/gene_list.txt \
-  --tag mc_analysis \
-  --steps 100000 \
-  --n_groups 4 \
-  --C1 1.0 \
-  --C2 2.5 \
-  --beta 0.05
-```
-
-### 7. Folding Pathway Analysis
-
-#### Pathway Statistics (`run_Foldingpathway.py`)
-Analyze post-transitional folding pathways from temperature quenching simulations:
-
-```bash
-python scripts/run_Foldingpathway.py \
-  --msm_data_file /path/to/msm_meta_set.csv \
-  --meta_set_file /path/to/meta_set.csv \
-  --traj_type_col traj_type_column \
-  --outdir results/folding_pathways/ \
-  --rm_traj_list 65 75 155
+python scripts/run_nativeNCLE.py --help
+python scripts/run_OP_on_simulation_traj.py --help
 ```
 
 ## Package Structure
@@ -259,6 +128,7 @@ EntDetect/
 
 Detailed documentation for each module is available:
 
+- [Tutorial (examples with included assets)](Documentation/tutorial_examples.md)
 - [Gaussian Entanglement](Documentation/gaussian_entanglement.md)
 - [Clustering](Documentation/clustering.md)
 - [Order Parameters](Documentation/order_params.md)

@@ -1,0 +1,29 @@
+name: entdetect
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  # Core scientific stack
+  - numpy
+  - scipy
+  - pandas
+  - biopython
+  - numba
+  - matplotlib
+  - seaborn
+  - scikit-learn
+  - networkx
+  - pyyaml
+  - tqdm
+  - requests
+  - statsmodels>=0.14
+  # Common trajectory / structure deps
+  - mdanalysis
+  - mdtraj
+  - parmed
+  # Optional but commonly used by the Jwalk/SASA pipeline
+  - freesasa
+  - pip:
+      # Install EntDetect from the current checkout (run `conda env create` from repo root)
+      - -e .

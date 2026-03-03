@@ -5,6 +5,15 @@ All notable changes to EntDetect will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.4] - 2026-03-03
+
+### Added
+- macOS-friendly setup path via `environment-mac.yml` and README installation notes.
+- New tutorial document with runnable examples using bundled `assets/`: `Documentation/tutorial_examples.md`.
+
+### Changed
+- `run_OP_on_simulation_traj.py` now accepts CLI flags to select CG vs all-atom mode and C-alpha vs heavy-atom contact definitions (defaults preserve prior behavior).
+
 ## [1.1.3] - 2026-03-03
 
 ### Added

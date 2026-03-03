@@ -34,6 +34,26 @@ def main(argv=None):
     parser.add_argument("--domain", type=str, required=True, help="Path to domain definitions file")
     parser.add_argument("--start", type=int, required=False, help="Frame number to start analysis from", default=0)
     parser.add_argument("--ent_detection_method", type=int, required=False, help="ENT detection method: 1=any GLN, 2=any TLN (default), 3=both GLN and TLN same termini", default=2)
+    parser.add_argument(
+        "--resolution",
+        type=str,
+        choices=["cg", "aa"],
+        default="cg",
+        help="Trajectory resolution: 'cg' (coarse-grained, default) or 'aa' (all-atom)",
+    )
+    parser.add_argument(
+        "--contacts",
+        type=str,
+        choices=["calpha", "heavy"],
+        default=None,
+        help="Contact definition to use for OP/G: 'calpha' or 'heavy'. Default: calpha for cg, heavy for aa.",
+    )
+    parser.add_argument(
+        "--no_topoly",
+        action="store_true",
+        help="Disable topoly crossing detection (uses GLN-only workflow). Default: topoly enabled.",
+    )
+    parser.add_argument("--nproc", type=int, required=False, default=10, help="Number of processes for G calculation (default: 10)")
     parser.add_argument("--outdir", type=str, required=False, help="Output directory for results", default='./')    
     args = parser.parse_args(argv)
     print(args)
@@ -47,6 +67,16 @@ def main(argv=None):
     start = args.start
     ent_detection_method = args.ent_detection_method
     outdir = args.outdir
+
+    if args.contacts is None:
+        contacts = "calpha" if args.resolution == "cg" else "heavy"
+    else:
+        contacts = args.contacts
+
+    Calpha = contacts == "calpha"
+    CG = args.resolution == "cg"
+    topoly = not args.no_topoly
+    nproc = args.nproc
 
     ## Load the Order Parameter object with the file parameters
     CalcOP = CalculateOP(outdir=outdir,
@@ -65,34 +95,10 @@ def main(argv=None):
     Qdata_dict = CalcOP.Q()
     print(Qdata_dict.keys())
 
-    ## Calculate the fraction of native contacts with a change of entanglement (G) and all associated entanglement features 
-    # Case #1: 
-    #   - Use topoly to find crossings and use the TLN to assess entanglement changes
-    #   - Use the alpha carbons to define native contacts
-    #   - Trajectory is coarse-grained (CG) 
-    Gdata_dict = CalcOP.G(topoly=True, Calpha=True, CG=True, nproc=10) 
+    ## Calculate the fraction of native contacts with a change of entanglement (G) and all associated entanglement features
+    # Defaults preserve historical behavior: coarse-grained trajectory, Calpha contacts, topoly enabled.
+    Gdata_dict = CalcOP.G(topoly=topoly, Calpha=Calpha, CG=CG, nproc=nproc)
     print(Gdata_dict.keys())
-
-    # Case #2: 
-    #   - Skip topoly to find crossings and use the GLN to assess entanglement changes
-    #   - Use the alpha carbons to define native contacts
-    #   - Trajectory is coarse-grained (CG) 
-    # Gdata_dict = CalcOP.G(topoly=False, Calpha=True, CG=True, nproc=10) 
-    # print(Gdata_dict.keys())
-
-    # Case #3: 
-    #   - Skip topoly to find crossings and use the GLN to assess entanglement changes
-    #   - Use all heavy atoms to define native contacts
-    #   - Trajectory is all-atom (not CG) 
-    # Gdata_dict = CalcOP.G(topoly=False, Calpha=False, CG=False, nproc=10) 
-    # print(Gdata_dict.keys())
-
-    # Case #4: 
-    #   - Use topoly to find crossings and use the TLN to assess entanglement changes
-    #   - Use all heavy atoms to define native contacts
-    #   - Trajectory is all-atom (not CG) 
-    # Gdata_dict = CalcOP.G(topoly=True, Calpha=False, CG=False, nproc=10) 
-    # print(Gdata_dict.keys())
 
     ## Calculate the mirror symmetry order parameter K
     Kdata_dict = CalcOP.K()
