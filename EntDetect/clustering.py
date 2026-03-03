@@ -43,7 +43,7 @@ class ClusterNativeEntanglements:
     """
 
     ##########################################################################################################################################################
-    def __init__(self, organism: str = 'Ecoli', cut_off: int = 57) -> None:
+    def __init__(self, organism: str = 'Ecoli', cut_off: int = None) -> None:
         """
         Constructor for GaussianEntanglement class.
 
@@ -57,7 +57,8 @@ class ClusterNativeEntanglements:
             self.cut_off = 57
         elif organism == 'Yeast':
             self.cut_off = 49
-        else:
+        
+        if cut_off is not None:
             self.cut_off = cut_off
         self.organism = organism
     ##########################################################################################################################################################

@@ -15,7 +15,7 @@ python scripts/run_OP_on_simulation_traj.py
 --start 6660
 """
 
-if __name__ == "__main__":
+def main(argv=None):
 
     import multiprocessing as mp
     import sys,os
@@ -33,8 +33,9 @@ if __name__ == "__main__":
     parser.add_argument("--sec_elements", type=str, required=True, help="Path to secondary structure definitions file")
     parser.add_argument("--domain", type=str, required=True, help="Path to domain definitions file")
     parser.add_argument("--start", type=int, required=False, help="Frame number to start analysis from", default=0)
+    parser.add_argument("--ent_detection_method", type=int, required=False, help="ENT detection method: 1=any GLN, 2=any TLN (default), 3=both GLN and TLN same termini", default=2)
     parser.add_argument("--outdir", type=str, required=False, help="Output directory for results", default='./')    
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     print(args)
     traj = args.Traj
     ID = args.ID
@@ -44,6 +45,7 @@ if __name__ == "__main__":
     sec_elements = args.sec_elements
     domain = args.domain
     start = args.start
+    ent_detection_method = args.ent_detection_method
     outdir = args.outdir
 
     ## Load the Order Parameter object with the file parameters
@@ -55,7 +57,8 @@ if __name__ == "__main__":
                          sec_elements=sec_elements,
                          dcd=dcd,
                          domain=domain,
-                         start=start) #
+                         start=start,
+                         ent_detection_method=ent_detection_method) #
     print(CalcOP)
 
     ## Calculate the fraction of native contacts (Q)
@@ -96,3 +99,8 @@ if __name__ == "__main__":
     print(Kdata_dict.keys())
 
     print(f'NORMAL TERMINATION - {time.time() - start_time} seconds')
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -62,24 +62,42 @@ def convert_cor_psf_to_pdb(cor_file, psf_file, output_pdb):
     return output_pdb
 
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser(
         description="Convert CHARMM COR/PSF files to PDB format",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python scripts/convert_cor_psf_to_pdb.py --cor model.cor --psf model.psf --output model.pdb
-  python scripts/convert_cor_psf_to_pdb.py --cor 1zmr_ca.crd --psf 1zmr_ca.psf --output 1zmr_ca.pdb
-        """
+  convert_cor_psf_to_pdb --cor model.cor --psf model.psf --output model.pdb
+  convert_cor_psf_to_pdb --cor 1zmr_ca.crd --psf 1zmr_ca.psf --output 1zmr_ca.pdb
+        """,
     )
-    
-    parser.add_argument("--cor", "--crd", type=str, required=True, 
-                        help="Input CHARMM coordinate file (.cor or .crd)")
-    parser.add_argument("--psf", type=str, required=True,
-                        help="Input CHARMM PSF topology file (.psf)")
-    parser.add_argument("--output", "-o", type=str, required=True,
-                        help="Output PDB file")
-    
-    args = parser.parse_args()
-    
+
+    parser.add_argument(
+        "--cor",
+        "--crd",
+        type=str,
+        required=True,
+        help="Input CHARMM coordinate file (.cor or .crd)",
+    )
+    parser.add_argument(
+        "--psf",
+        type=str,
+        required=True,
+        help="Input CHARMM PSF topology file (.psf)",
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        type=str,
+        required=True,
+        help="Output PDB file",
+    )
+
+    args = parser.parse_args(argv)
     convert_cor_psf_to_pdb(args.cor, args.psf, args.output)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

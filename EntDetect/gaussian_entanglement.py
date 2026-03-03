@@ -45,6 +45,7 @@ import pickle
 from collections import defaultdict
 import time
 import multiprocessing as mp
+from typing import Optional
 filterwarnings("ignore")
 
 class GaussianEntanglement:
@@ -793,7 +794,18 @@ class GaussianEntanglement:
             
 
     ##########################################################################################################################################################
-    def calculate_traj_entanglements(self, dcd: str, PSF: str, outdir: str='./', ID: str='', topoly:bool=True, start:int=0, stop:int=999999999, stride:int=1) -> dict:
+    def calculate_traj_entanglements(
+        self,
+        dcd: str,
+        PSF: str,
+        outdir: str = './',
+        ID: str = '',
+        topoly: bool = True,
+        start: int = 0,
+        stop: int = 999999999,
+        stride: int = 1,
+        ref_contact_file: Optional[str] = None,
+    ) -> dict:
 
         """
         Driver function that takes a CA coarse grained MD trajectory and looks for entanglements. 
@@ -818,7 +830,42 @@ class GaussianEntanglement:
         if os.path.exists(outfile):
             print(f'{outfile} ALREADY EXISTS AND WILL BE LOADED')
             outdf = pd.read_csv(outfile, sep='|', dtype={'c': str})
-            return {'outfile':outfile, 'ent_result':outdf}
+            if ref_contact_file is not None:
+                try:
+                    ref_df = pd.read_csv(ref_contact_file, sep='|', usecols=['chain', 'i', 'j'])
+                    ref_min = np.minimum(ref_df['i'].astype(int).to_numpy(), ref_df['j'].astype(int).to_numpy())
+                    ref_max = np.maximum(ref_df['i'].astype(int).to_numpy(), ref_df['j'].astype(int).to_numpy())
+                    ref_keys = (
+                        ref_df['chain'].astype(str).to_numpy().astype(str)
+                        + ':'
+                        + ref_min.astype(str)
+                        + '-'
+                        + ref_max.astype(str)
+                    )
+                    ref_keys = set(ref_keys.tolist())
+
+                    out_min = np.minimum(outdf['i'].astype(int).to_numpy(), outdf['j'].astype(int).to_numpy())
+                    out_max = np.maximum(outdf['i'].astype(int).to_numpy(), outdf['j'].astype(int).to_numpy())
+                    out_keys = (
+                        outdf['chain'].astype(str).to_numpy().astype(str)
+                        + ':'
+                        + out_min.astype(str)
+                        + '-'
+                        + out_max.astype(str)
+                    )
+                    mask = pd.Series(out_keys).isin(ref_keys).to_numpy()
+                    filtered = outdf.loc[mask].reset_index(drop=True)
+                    if len(filtered) != len(outdf):
+                        print(
+                            f'Filtered existing Traj_GE output to reference contacts: '
+                            f'{len(outdf)} -> {len(filtered)} rows (ref: {ref_contact_file})'
+                        )
+                        filtered.to_csv(outfile, sep='|', index=False)
+                        outdf = filtered
+                except Exception as e:
+                    print(f'WARNING: Failed to filter Traj_GE output using ref_contact_file={ref_contact_file}: {e}')
+
+            return {'outfile': outfile, 'ent_result': outdf}
     
         ## Else analyze the traj and create the outfile
         univ = mda.Universe(PSF, dcd)    
@@ -881,6 +928,38 @@ class GaussianEntanglement:
         # outdf['ENT'] = ENT
         # print(f'outdf:\n{outdf.to_string()}')
         outdf['ENT'] = outdf.apply(lambda row: self.determine_ent_status(row['GLNn'], row['GLNc'], row['TLNn'], row['TLNc']), axis=1)
+
+        if ref_contact_file is not None:
+            try:
+                ref_df = pd.read_csv(ref_contact_file, sep='|', usecols=['chain', 'i', 'j'])
+                ref_min = np.minimum(ref_df['i'].astype(int).to_numpy(), ref_df['j'].astype(int).to_numpy())
+                ref_max = np.maximum(ref_df['i'].astype(int).to_numpy(), ref_df['j'].astype(int).to_numpy())
+                ref_keys = (
+                    ref_df['chain'].astype(str).to_numpy().astype(str)
+                    + ':'
+                    + ref_min.astype(str)
+                    + '-'
+                    + ref_max.astype(str)
+                )
+                ref_keys = set(ref_keys.tolist())
+
+                out_min = np.minimum(outdf['i'].astype(int).to_numpy(), outdf['j'].astype(int).to_numpy())
+                out_max = np.maximum(outdf['i'].astype(int).to_numpy(), outdf['j'].astype(int).to_numpy())
+                out_keys = (
+                    outdf['chain'].astype(str).to_numpy().astype(str)
+                    + ':'
+                    + out_min.astype(str)
+                    + '-'
+                    + out_max.astype(str)
+                )
+                mask = pd.Series(out_keys).isin(ref_keys).to_numpy()
+                before = len(outdf)
+                outdf = outdf.loc[mask].reset_index(drop=True)
+                after = len(outdf)
+                print(f'Filtered Traj_GE to reference contacts: {before} -> {after} rows (ref: {ref_contact_file})')
+            except Exception as e:
+                print(f'WARNING: Failed to filter Traj_GE output using ref_contact_file={ref_contact_file}: {e}')
+
         print(f'outdf:\n{outdf.to_string()}')
         outdf.to_csv(outfile, sep='|', index=False)
         print(f'SAVED: {outfile}')

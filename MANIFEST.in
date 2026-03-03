@@ -1,0 +1,2 @@
+recursive-include EntDetect/resources *
+include EntDetect/Jwalk/naccess.config.txt

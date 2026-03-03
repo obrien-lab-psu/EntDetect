@@ -23,18 +23,17 @@ EntDetect provides a complete toolkit for analyzing protein entanglements across
 
 ## Installation
 
-Create a new conda environment using the provided environment file:
+Create a new conda environment and install EntDetect (from this repo checkout):
 
 ```bash
-conda env create -f environment.yml --name EntDetect_env
-conda activate EntDetect_env
+conda env create -f environment.yml
+conda activate entdetect
 ```
 
-Install the package in the EntDetect directory:
-
-```bash
-pip install .
-```
+Notes:
+- The provided conda environment targets Python 3.11 for best compatibility with the scientific stack.
+- Run `conda env create` from the EntDetect repo root (the environment file uses `pip -e .`).
+- If you prefer installing into an existing env, use `pip install -e .` from the repo root.
 
 ## Quick Start
 

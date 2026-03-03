@@ -10,7 +10,7 @@ python scripts/run_Foldingpathway.py
 --rm_traj_list 65 75 155 162
 """
 
-if __name__ == "__main__":
+def main(argv=None):
 
     import sys, os
     import argparse
@@ -24,7 +24,7 @@ if __name__ == "__main__":
     parser.add_argument("--traj_type_col", type=str, required=True, help="Trajectory type column name")
     parser.add_argument("--outdir", type=str, required=True, help="Output directory for results")
     parser.add_argument("--rm_traj_list", type=int, nargs='+', required=False, help="List of trajectory indices to remove", default=[])
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     print(args)
     msm_data_file = args.msm_data_file
     meta_set_file = args.meta_set_file
@@ -49,3 +49,8 @@ if __name__ == "__main__":
     JS_divergence = FP.JS_divergence()
 
     print(f'NORMAL TERMINATION - {time.time() - start_time} seconds')
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

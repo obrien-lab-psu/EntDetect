@@ -13,7 +13,7 @@ python scripts/run_montecarlo.py
 --beta 0.05
 """
 
-if __name__ == "__main__":
+def main(argv=None):
 
     import sys, os
     import argparse
@@ -36,10 +36,10 @@ if __name__ == "__main__":
     parser.add_argument("--C2", type=float, default=2.5, help="C2 parameter for the Monte Carlo simulation")
     parser.add_argument("--beta", type=float, default=0.05, help="Beta parameter for the Monte Carlo simulation")
     parser.add_argument("--linearT", action='store_true', help="Use linear temperature for the Monte Carlo simulation")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     print(args)
     dataframe_files = args.dataframe_files
-    outpath = args.outpath
+    outdir = args.outpath
     gene_list = args.gene_list
     tag = args.tag
     reg_formula = args.reg_formula
@@ -54,20 +54,22 @@ if __name__ == "__main__":
     linearT = args.linearT
 
     ## initialize the clustering object
-    MC = MonteCarlo(dataframe_files=dataframe_files, 
-                    outpath=outpath, 
-                    gene_list=gene_list, 
-                    tag=tag, 
-                    reg_formula=reg_formula,
-                    response_var=response_var, 
-                    test_var=test_var,
-                    random=random, 
-                    n_groups=n_groups, 
-                    steps=steps, 
-                    C1=C1, 
-                    C2=C2, 
-                    beta=beta,
-                    linearT=linearT)
+    MC = MonteCarlo(
+        dataframe_files=dataframe_files,
+        outdir=outdir,
+        gene_list=gene_list,
+        ID=tag,
+        reg_formula=reg_formula,
+        response_var=response_var,
+        test_var=test_var,
+        random=random,
+        n_groups=n_groups,
+        steps=steps,
+        C1=C1,
+        C2=C2,
+        beta=beta,
+        linearT=linearT,
+    )
     print(MC)
 
     ## Load the data into the MonteCarlo object
@@ -77,3 +79,8 @@ if __name__ == "__main__":
     MC.run(encoded_df=MC.data, ID_column='gene')
     
     print(f'NORMAL TERMINATION - {time.time() - start_time} seconds')
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

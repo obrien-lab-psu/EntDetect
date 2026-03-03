@@ -19,10 +19,17 @@ from sklearn.neighbors import NearestNeighbors
 from scipy.spatial.distance import euclidean
 import matplotlib.pyplot as plt
 import os
-import rpy2.robjects as robjects
-from rpy2.robjects import pandas2ri
-from rpy2.robjects.packages import importr
-from rpy2.robjects.conversion import localconverter
+
+try:
+    import rpy2.robjects as robjects
+    from rpy2.robjects import pandas2ri
+    from rpy2.robjects.packages import importr
+    from rpy2.robjects.conversion import localconverter
+except ImportError:
+    robjects = None
+    pandas2ri = None
+    importr = None
+    localconverter = None
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from scipy.stats import poisson, binom, fisher_exact, chi2, norm

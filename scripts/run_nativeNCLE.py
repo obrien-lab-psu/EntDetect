@@ -13,7 +13,8 @@ python scripts/run_nativeNCLE.py
 Script to calculate native Gaussian entanglements in a given structure (PDB or COR file), cluster them, and generate entanglement features.
 """
 
-if __name__ == "__main__":
+
+def main(argv=None):
 
     import multiprocessing as mp
     import sys, os
@@ -34,7 +35,7 @@ if __name__ == "__main__":
     parser.add_argument("--cluster_cutoff", type=float, required=False, help="Clustering cutoff distance (default: 5.0)", default=52.0)
     parser.add_argument("--model", type=str, required=False, help="Model type for high-quality selection: {EXP, AF}", default='EXP')
     parser.add_argument("--ent_detection_method", type=int, required=False, help="ENT detection method: 1=any GLN, 2=any TLN (default), 3=both GLN and TLN same termini", default=3)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     print(args)
     
     struct = args.struct
@@ -100,3 +101,8 @@ if __name__ == "__main__":
 
 
     print(f'NORMAL TERMINATION - {time.time() - start_time} seconds')
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

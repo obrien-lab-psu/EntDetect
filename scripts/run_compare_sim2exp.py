@@ -31,7 +31,7 @@ python scripts/run_compare_sim2exp.py
 --nproc 10
 """
 
-if __name__ == "__main__":
+def main(argv=None):
 
     import multiprocessing as mp
     import sys, os
@@ -66,7 +66,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_boot", type=int, required=True, help="Number of bootstrap samples")
     parser.add_argument("--lag_frame", type=int, required=True, help="Lag time in frames")
     parser.add_argument("--nproc", type=int, required=True, help="Number of processes for parallel computation")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     print(args)
     msm_data_file = args.msm_data_file
     meta_dist_file = args.meta_dist_file
@@ -130,3 +130,8 @@ if __name__ == "__main__":
     MS.select_rep_structs(consist_data_file, consist_result_file, total_traj_num_frames=335, last_num_frames=67)
     
     print(f'NORMAL TERMINATION - {time.time() - start_time} seconds')
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

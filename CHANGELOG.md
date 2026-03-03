@@ -5,7 +5,16 @@ All notable changes to EntDetect will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0] - 2026-01-26
+## [1.1.3] - 2026-03-03
+
+### Added
+- `run_OP_on_simulation_traj.py` now supports `--ent_detection_method` (mirrors `run_nativeNCLE.py`) and threads it through the OP/GE pipeline.
+
+### Changed
+- Trajectory entanglement CSV outputs (`Traj_GE/*_GE.csv`) now only report per-frame contacts that are also present in the same-run reference contact set (`Native_GE/*_GE.csv`).
+- Packaging/install workflow improvements to ensure bundled resources are available via `importlib.resources` and to reduce friction for fresh installs.
+
+## [1.1.2] - 2026-01-26
 
 ### Added
 - **Configurable ENT Detection Methods** - Three distinct methods for determining entanglement status:

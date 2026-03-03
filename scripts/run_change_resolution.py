@@ -1,5 +1,3 @@
-from EntDetect.change_resolution import CoarseGrain, BackMapping
-
 """
 python scripts/run_change_resolution.py 
 --outdir TestingGrounds/CoarseGraining/ 
@@ -9,7 +7,7 @@ python scripts/run_change_resolution.py
 --ID test_protein
 """
 
-if __name__ == "__main__":
+def main(argv=None):
 
     import sys, os
     import argparse
@@ -23,13 +21,16 @@ if __name__ == "__main__":
     parser.add_argument("--nscal", type=int, default=2, help="Coarse graining scale factor")
     parser.add_argument("--domain_file", type=str, required=True, help="Path to the domain definition file")
     parser.add_argument("--ID", type=str, required=True, help="Tag for the coarse graining process")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     print(args)
     outdir = args.outdir
     pdbfile = args.pdbfile
     nscal = args.nscal
     domain_file = args.domain_file
     ID = args.ID
+
+    # Import here so `run_change_resolution -h` works without OpenMM installed.
+    from EntDetect.change_resolution import CoarseGrain, BackMapping
 
     ## Coarse grain the all-atom structure
     CoarseGrainer = CoarseGrain(outdir=outdir,
@@ -55,3 +56,8 @@ if __name__ == "__main__":
     backMapper.backmap(cg_pdb=CGfiles['cor'], aa_pdb=pdbfile, TAG=ID)
 
     print(f'NORMAL TERMINATION - {time.time() - start_time} seconds')
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

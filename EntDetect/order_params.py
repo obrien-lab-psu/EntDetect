@@ -34,7 +34,7 @@ class CalculateOP:
     (6) - Jwalk SASD
     """
     #######################################################################################
-    def __init__(self, outdir:str='./', ID:str='', Traj:int=1, psf:str='', cor:str='', dcd:str='', sec_elements:str='', domain:str='', start:int=0, end:int=99999999999999, stride:int=1):
+    def __init__(self, outdir:str='./', ID:str='', Traj:int=1, psf:str='', cor:str='', dcd:str='', sec_elements:str='', domain:str='', start:int=0, end:int=99999999999999, stride:int=1, ent_detection_method:int=2):
         """
         Initializes the DataAnalysis class with necessary paths and parameters.
 
@@ -88,6 +88,9 @@ class CalculateOP:
         self.end = end
         self.stride = stride
         print(f'START: {self.start} | END: {self.end} | STRIDE: {self.stride}')
+
+        self.ent_detection_method = ent_detection_method
+        print(f'ent_detection_method: {self.ent_detection_method}')
 
         self.three_to_one = {
                         "ALA": "A", "ARG": "R", "ASN": "N", "ASP": "D",
@@ -268,7 +271,14 @@ class CalculateOP:
         print(f'nproc: {nproc}')
 
         ## initialize the entanglement object
-        ge = GaussianEntanglement(g_threshold=g_threshold, density=density, Calpha=Calpha, CG=CG, nproc=nproc) # for CG structures and trajectories
+        ge = GaussianEntanglement(
+            g_threshold=g_threshold,
+            density=density,
+            Calpha=Calpha,
+            CG=CG,
+            nproc=nproc,
+            ent_detection_method=self.ent_detection_method,
+        ) # for CG structures and trajectories
         #ge = GaussianEntanglement(g_threshold=g_threshold, density=density, Calpha=False, CG=False) # for all-atom structures
         print(ge)
     
@@ -288,7 +298,16 @@ class CalculateOP:
         
         ## Get the trajectory entanglements
         print(f'Calculating the trajectory entanglements...')
-        TrajEnt = ge.calculate_traj_entanglements(self.dcd, self.psf, outdir=os.path.join(self.Gpath,'Traj_GE/'), ID=f'{self.ID}_traj{self.Traj}', start=self.start, stop=self.end, topoly=topoly)
+        TrajEnt = ge.calculate_traj_entanglements(
+            self.dcd,
+            self.psf,
+            outdir=os.path.join(self.Gpath, 'Traj_GE/'),
+            ID=f'{self.ID}_traj{self.Traj}',
+            start=self.start,
+            stop=self.end,
+            topoly=topoly,
+            ref_contact_file=NativeEnt['outfile'],
+        )
         #print(TrajEnt)
         
         ## Create the combined .pkl file required for clustering non-native entanglements

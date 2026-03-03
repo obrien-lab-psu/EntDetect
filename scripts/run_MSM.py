@@ -13,7 +13,7 @@ python scripts/run_MSM.py
 --rm_traj_list 65 75 155 162
 """
 
-if __name__ == "__main__":
+def main(argv=None):
 
     import multiprocessing as mp
     import sys, os
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     parser.add_argument("--n_large_states", type=int, required=False, help="Number of large states for MSM", default=10)
     parser.add_argument("--lagtime", type=int, required=False, help="Lag time for MSM", default=20)
     parser.add_argument("--rm_traj_list", type=int, nargs='+', required=False, help="List of trajectory indices to remove", default=[])
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     print(args)
     outdir = args.outdir
     OPpath = args.OPpath
@@ -54,3 +54,8 @@ if __name__ == "__main__":
     ## Sample representative structures from the MSM
     
     print(f'NORMAL TERMINATION - {time.time() - start_time} seconds')
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
