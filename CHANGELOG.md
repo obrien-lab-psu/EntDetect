@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `run_OP_on_simulation_traj.py` now accepts CLI flags to select CG vs all-atom mode and C-alpha vs heavy-atom contact definitions (defaults preserve prior behavior).
 
+## [1.1.5] - 2026-03-03
+
+### Fixed
+- Removed tracked `__pycache__/*.pyc` artifacts from version control (bytecode is now ignored and no longer shipped).
+
 ## [1.1.3] - 2026-03-03
 
 ### Added
