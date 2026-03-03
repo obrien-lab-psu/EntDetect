@@ -55,8 +55,8 @@ python scripts/run_nativeNCLE.py \
   --Accession P0A799 \
   --model EXP \
   --ent_detection_method 3 \
-  --cg \
-  --Calpha
+  --resolution cg \
+  --contacts calpha
 ```
 
 ## Example 3: Trajectory OPs (coarse-grained trajectory; C-alpha contacts)
@@ -82,6 +82,8 @@ python scripts/run_OP_on_simulation_traj.py \
 Notes:
 - `--resolution cg --contacts calpha` matches the typical CG workflow.
 - As of v1.1.3, the per-frame trajectory entanglement CSV output (`Traj_GE/*_GE.csv`) is filtered so it only reports contact pairs that are also present in the same-run reference contact set.
+
+Legacy flags are still supported in `run_nativeNCLE.py` (`--cg` and `--Calpha/--calpha`), but the tutorial uses `--resolution/--contacts` for consistency with the trajectory script.
 
 ## Example 4: Trajectory OPs (all-atom trajectory; heavy-atom contacts)
 

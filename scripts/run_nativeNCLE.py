@@ -31,7 +31,27 @@ def main(argv=None):
     parser.add_argument("--organism", type=str, required=False, help="Organism name for clustering: {Ecoli, Human, Yeast}", default='Ecoli')
     parser.add_argument("--Accession", type=str, required=False, help="UniProt Accession for the protein", default='P00558')
     parser.add_argument("--cg", action='store_true', help="Indicate structure is coarse-grained (C-alpha only) model")
-    parser.add_argument("--Calpha", action='store_true', help="Indicate structure is coarse-grained (C-alpha only) model")
+    parser.add_argument(
+        "--Calpha",
+        "--calpha",
+        action='store_true',
+        dest="Calpha",
+        help="Use C-alpha atoms for contact definition (legacy flag; prefer --contacts calpha)",
+    )
+    parser.add_argument(
+        "--resolution",
+        type=str,
+        choices=["aa", "cg"],
+        default=None,
+        help="Structure resolution: 'aa' (all-atom) or 'cg' (C-alpha coarse-grained). If set, this overrides --cg.",
+    )
+    parser.add_argument(
+        "--contacts",
+        type=str,
+        choices=["heavy", "calpha"],
+        default=None,
+        help="Contact definition to use: 'heavy' (all-atom) or 'calpha'. If omitted, defaults to heavy for aa and calpha for cg.",
+    )
     parser.add_argument("--cluster_cutoff", type=float, required=False, help="Clustering cutoff distance (default: 5.0)", default=52.0)
     parser.add_argument("--model", type=str, required=False, help="Model type for high-quality selection: {EXP, AF}", default='EXP')
     parser.add_argument("--ent_detection_method", type=int, required=False, help="ENT detection method: 1=any GLN, 2=any TLN (default), 3=both GLN and TLN same termini", default=3)
@@ -47,8 +67,22 @@ def main(argv=None):
     cluster_cutoff = args.cluster_cutoff
     model = args.model
 
+    # Derive effective resolution/contact settings while keeping legacy flags working.
+    # If neither --resolution nor --contacts are provided, behavior matches historical defaults:
+    #   - all-atom (CG=False)
+    #   - heavy-atom contacts (Calpha=False)
+    if args.resolution is None:
+        CG = bool(args.cg)
+    else:
+        CG = args.resolution == "cg"
+
+    if args.contacts is None:
+        Calpha = bool(args.Calpha) if args.resolution is None else (CG is True)
+    else:
+        Calpha = args.contacts == "calpha"
+
     # Set up Gaussian Entanglement and Clustering objects
-    ge = GaussianEntanglement(g_threshold=0.6, density=0.0, Calpha=args.Calpha, CG=args.cg, ent_detection_method=args.ent_detection_method)
+    ge = GaussianEntanglement(g_threshold=0.6, density=0.0, Calpha=Calpha, CG=CG, ent_detection_method=args.ent_detection_method)
     clustering = ClusterNativeEntanglements(organism=organism, cut_off=cluster_cutoff)
 
     # Determine which chains to process

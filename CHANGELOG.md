@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Removed tracked `__pycache__/*.pyc` artifacts from version control (bytecode is now ignored and no longer shipped).
 
+## [1.1.6] - 2026-03-03
+
+### Changed
+- `run_nativeNCLE.py` now supports `--resolution {aa,cg}` and `--contacts {heavy,calpha}` for consistency with `run_OP_on_simulation_traj.py` (legacy `--cg`/`--Calpha` flags still work).
+- Tutorial examples updated to use `--resolution/--contacts` consistently.
+
 ## [1.1.3] - 2026-03-03
 
 ### Added
