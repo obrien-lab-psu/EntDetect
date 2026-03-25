@@ -156,9 +156,12 @@ If you use EntDetect in your research, please cite:
 ```bibtex
 @software{entdetect2024,
   title={EntDetect: A Python Package for Protein Entanglement Analysis},
-  author={Your Name},
-  year={2024},
-  url={https://github.com/SparkyDaBear/EntDetect}
+  author={Ian Sitarik},
+  author={Yang Jiang},
+  author={Hyebin Song},
+  author={Edward O'Brien},
+  year={2026},
+  url={https://github.com/obrien-lab-psu/EntDetect}
 }
 ```
 
