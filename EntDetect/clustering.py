@@ -863,7 +863,7 @@ class ClusterNativeEntanglements:
         print(f'{"="*100}')
         print(f'Total raw entanglements processed: {sum(num_raw_ents.values())}')
         print(f'Total final representative entanglements: {len(outdf)}')
-        print(f'Compression ratio: {sum(num_raw_ents.values())/len(outdf):.2f}x (raw → final)')
+        # print(f'Compression ratio: {sum(num_raw_ents.values())/len(outdf):.2f}x (raw → final)')
         print(f'Clustering by organism: {self.organism}')
         print(f'Spatial distance cutoff: {self.cut_off}')
         print(f'Output file: {outfilepath}')
