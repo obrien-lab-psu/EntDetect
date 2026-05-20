@@ -452,43 +452,48 @@ def find_surface_voxels(aa1_CA, densMap, xl_list = []):
             for z in range(-radius1,radius1+1):
                 if (x**2 + y**2 + z**2) <= (radius1**2):
                     sphere1.append([x,y,z])
+    sphere1_set = {(v[0],v[1],v[2]) for v in sphere1}
                     
     for x in range(-radius2,radius2+1):
         for y in range(-radius2,radius2+1):
             for z in range(-radius2,radius2+1):
                 if (x**2 + y**2 + z**2) <= (radius2**2):
-                    if ([x,y,z]) not in sphere1:
+                    if (x,y,z) not in sphere1_set:
                         sphere2.append([x,y,z])
+    sphere2_set = {(v[0],v[1],v[2]) for v in sphere2}
                     
     for x in range(-radius3,radius3+1):
         for y in range(-radius3,radius3+1):
             for z in range(-radius3,radius3+1):
                 if (x**2 + y**2 + z**2) <= (radius3**2):
-                    if ([x,y,z]) not in sphere1 and ([x,y,z]) not in sphere2:
+                    if (x,y,z) not in sphere1_set and (x,y,z) not in sphere2_set:
                         sphere3.append([x,y,z])
+    sphere3_set = {(v[0],v[1],v[2]) for v in sphere3}
                                     
     for x in range(-radius4,radius4+1):
         for y in range(-radius4,radius4+1):
             for z in range(-radius4,radius4+1):
                 if (x**2 + y**2 + z**2) <= (radius4**2):
-                    if ([x,y,z]) not in sphere1 and ([x,y,z]) not in sphere2 and (
-                    [x,y,z]) not in sphere3:
+                    if (x,y,z) not in sphere1_set and (x,y,z) not in sphere2_set and (
+                    x,y,z) not in sphere3_set:
                         sphere4.append([x,y,z])
+    sphere4_set = {(v[0],v[1],v[2]) for v in sphere4}
     
     for x in range(-radius5,radius5+1):
         for y in range(-radius5,radius5+1):
             for z in range(-radius5,radius5+1):
                 if (x**2 + y**2 + z**2) <= (radius5**2):
-                    if ([x,y,z]) not in sphere1 and ([x,y,z]) not in sphere2 and (
-                    [x,y,z]) not in sphere3 and ([x,y,z]) not in sphere4:
+                    if (x,y,z) not in sphere1_set and (x,y,z) not in sphere2_set and (
+                    x,y,z) not in sphere3_set and (x,y,z) not in sphere4_set:
                         sphere5.append([x,y,z])
+    sphere5_set = {(v[0],v[1],v[2]) for v in sphere5}
                         
     for x in range(-radius6,radius6+1):
         for y in range(-radius6,radius6+1):
             for z in range(-radius6,radius6+1):
                 if (x**2 + y**2 + z**2) <= (radius6**2):
-                    if ([x,y,z]) not in sphere1 and ([x,y,z]) not in sphere2 and (
-                    [x,y,z]) not in sphere3 and ([x,y,z]) not in sphere4 and ([x,y,z]) not in sphere5:
+                    if (x,y,z) not in sphere1_set and (x,y,z) not in sphere2_set and (
+                    x,y,z) not in sphere3_set and (x,y,z) not in sphere4_set and (x,y,z) not in sphere5_set:
                         sphere6.append([x,y,z])
     
     # iterate through sphere shells and append starting voxels to dictionary

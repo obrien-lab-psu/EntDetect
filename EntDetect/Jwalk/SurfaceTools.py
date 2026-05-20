@@ -105,4 +105,46 @@ def check_solvent_accessibility_freesasa(prot, aa_CA, xl_list, aa_dict, ncpus):
         print("{} {} of which {} are on the surface".format(len(aa_CA), aa_dict[sd_res], len(surface_solv_access_residue)))
             
     return surface_solv_access_residue
+
+
+def check_solvent_accessibility_freesasa_both(prot, aa1_CA, aa2_CA, xl_list, aa_dict, ncpus):
+    """
+    Run freesasa ONCE for the PDB and return filtered surface-accessible dicts
+    for both aa1_CA and aa2_CA.  Avoids the duplicate freesasa call that occurs
+    when the function is called separately for each residue set.
+
+    Returns: (surface_aa1_CA, surface_aa2_CA)
+    """
+    freesasa.Parameters().setNSlices(50)
+    freesasa.Parameters().setNThreads(ncpus)
+
+    pt = os.path.dirname(os.path.realpath(__file__))
+    classifier = freesasa.Classifier(os.path.join(pt, "naccess.config.txt"))
+    structure = freesasa.Structure(os.path.normpath(prot), classifier)
+    result = freesasa.calc(structure)
+
+    solv_access_residue = {}
+    for chain, residue in result.residueAreas().items():
+        for res_sasa_info in residue.values():
+            if res_sasa_info.total > 7.0:
+                solv_access_residue[(int(res_sasa_info.residueNumber), chain, res_sasa_info.residueType)] = True
+
+    def _filter(aa_CA):
+        out = {}
+        for res_num, chain, res_name in aa_CA:
+            if (res_num, chain, res_name) in solv_access_residue:
+                out[(res_num, chain, res_name)] = aa_CA[(res_num, chain, res_name)]
+            else:
+                print("Residue {}-{}-{} is buried".format(res_num, chain, res_name))
+        if xl_list == "NULL" and out:
+            sd_res = next(iter(out))[2]
+            if sd_res == "LYS":
+                print("{} {} and 1 N-terminus of which {} are on the surface".format(
+                    len(aa_CA) - 1, aa_dict[sd_res], len(out)))
+            else:
+                print("{} {} of which {} are on the surface".format(
+                    len(aa_CA), aa_dict[sd_res], len(out)))
+        return out
+
+    return _filter(aa1_CA), _filter(aa2_CA)
     

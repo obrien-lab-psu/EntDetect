@@ -32,6 +32,8 @@ class CalculateOP:
     (3) - Solvant Accessible Surface Area (SASA)
     (4) - Mirror symmetry order parameter (K)
     (5) - Cross linking probability score (XP)
+            use_traj=False (default): single static PDB
+            use_traj=True:  per-frame from DCD, respects self.start/end/stride
     (6) - Jwalk SASD
     """
     #######################################################################################
@@ -428,66 +430,149 @@ class CalculateOP:
     #######################################################################################
 
     #######################################################################################
-    def XP(self, pdb:str='None') -> dict:
+    def XP(self, pdb:str='None', use_traj:bool=False, nproc:int=1) -> dict:
         """
-        Calculates the cross-linking probability (XP) for an all atom pdb for all pairs of the following amino acid types [K S, T, Y, M]
+        Calculates the cross-linking probability (XP) for all pairs of amino acid types [K, S, T, Y, M].
+
+        use_traj=False (default):
+            Runs on the single static PDB supplied as `pdb` — original behaviour.
+            Output: XP/Jwalk_results_{ID}_Traj{N}/Jwalk_results/{stem}_crosslink_list.txt
+
+        use_traj=True:
+            Iterates over DCD frames [self.start : self.end : self.stride]. For each frame a
+            temporary per-frame PDB is written, Jwalk is run, XP is scored, and the per-frame PDB
+            is deleted immediately. Produces a single combined tab-separated file:
+            XP/{ID}_Traj{N}.XP  with columns: Frame | Index | Model | Atom1 | Atom2 | SASD | Euclidean Distance | XP
+            nproc > 1 parallelises frame-level Jwalk runs via ThreadPoolExecutor.
         """
-        
-        # make directory for Q data if it doesnt exist
+        traj_nproc = 1 # number of processors in the pool for the trajectory mode — Jwalk is not thread safe so must be run with nproc=1, but we can parallelise across frames with ThreadPoolExecutor
+
+        # make output directory
         self.XPpath = os.path.join(self.outdir, 'XP')
         if not os.path.exists(self.XPpath):
             os.makedirs(self.XPpath)
             self.logger.info(f'Made directory: {self.XPpath}')
 
-        # Make the xl_list file for all possible cross-linkable residue combinations
-        xl_list = os.path.join(self.XPpath, f'{self.ID}_Traj{self.Traj}_XLresidue_pairs.txt')
-        self.find_residue_pairs(pdb, output_file=xl_list)
-
-        ## Check that the Jwalk results directory exists and load them
-        #  else calculate the Jwalk distance and then load the files
-        pdbObj = pathlib.Path(pdb)
-        if not pdbObj.exists():
-            self.logger.error(f'ERROR: The input file supplied cannot be found. Please enter a .pdb file type')
-            sys.exit(2)
-        jwalk_results_dir = os.path.join(self.XPpath, f'Jwalk_results_{self.ID}_Traj{self.Traj}')
-        Jwalk_outfile = os.path.join(jwalk_results_dir, 'Jwalk_results', f'{pdbObj.stem}_crosslink_list.txt')
-        if os.path.exists(Jwalk_outfile):
-            self.logger.info(f'Jwalk outfile exists: {Jwalk_outfile}')
-
-        else:       
-            ## then calculate the Jwalk distance
-            # pdb: Input path to .pdb file
-            # xl_list: OPTIONAL - Input path to crosslink list (default: Finds all Lys-to-Lys crosslinks)
-            # aa1: OPTIONAL - Specify inital crosslink amino acid three letter code (default: LYS)
-            # aa2: OPTIONAL - Specify ending crosslink amino acid three letter code (default: LYS)
-            # max_dist: OPTIONAL - Specify maximum crosslink distance cutoff in Angstroms (default: Keeps all distances)
-            # jwalk_results_dir: OPTIONAL - Output path for Jwalk results (default: Out to "./Jwalk_results" in the current working directory)
-            # vox: OPTIONAL - Specify voxel resolution to use in Angstrom (default: 1 Angstrom)
-            # ncpus: OPTIONAL - Specify number of cpus to use (default: 1)
-
-            #self.runJwalk(pdb, xl_list='NULL', aa1='LYS', aa2='LYS', max_dist=sys.float_info.max, jwalk_results_dir=self.XPpath, vox=1, ncpus=1) # No precompiled list of residues to check
-            self.runJwalk(pdb, xl_list=xl_list, max_dist=sys.float_info.max, jwalk_results_dir=jwalk_results_dir, vox=1, ncpus=1)
-            self.logger.debug('Jwalk calculated')
-
-        ## Check that the Jwalk results directory exists and load them
         col_names = ["Index", "Model", "Atom1", "Atom2", "SASD", "Euclidean Distance"]
-        Jwalk_df = pd.read_csv(Jwalk_outfile, sep=r'\s+', names=col_names, skiprows=1, engine='python', index_col=False)
 
-        ## Calculate the XP score
-        XP_scores = []
-        for rowi, row in Jwalk_df.iterrows():
-            AA1 = self.three_to_one[row['Atom1'].split('-')[0][0:3]]
-            AA2 = self.three_to_one[row['Atom2'].split('-')[0][0:3]]
-            pair_AA = (AA1, AA2)
-            JWalk_dist = row['SASD']
-            score = self.score_XL(pair_AA, JWalk_dist)
-            XP_scores.append(score)
+        if not use_traj:
+            # ── single-PDB path (original behaviour, unchanged) ───────────────
+            xl_list = os.path.join(self.XPpath, f'{self.ID}_Traj{self.Traj}_XLresidue_pairs.txt')
+            self.find_residue_pairs(pdb, output_file=xl_list)
 
-        Jwalk_df['XP'] = XP_scores
-        # save the updated Jwalk file
-        Jwalk_df.to_csv(Jwalk_outfile, index=False, sep='\t')
-        self.logger.info(f'SAVED: {Jwalk_outfile}')
-        return {'outfile':Jwalk_outfile, 'result':Jwalk_df}
+            pdbObj = pathlib.Path(pdb)
+            if not pdbObj.exists():
+                self.logger.error(f'ERROR: The input file supplied cannot be found. Please enter a .pdb file type')
+                sys.exit(2)
+            jwalk_results_dir = os.path.join(self.XPpath, f'Jwalk_results_{self.ID}_Traj{self.Traj}')
+            Jwalk_outfile = os.path.join(jwalk_results_dir, 'Jwalk_results', f'{pdbObj.stem}_crosslink_list.txt')
+            if os.path.exists(Jwalk_outfile):
+                self.logger.info(f'Jwalk outfile exists: {Jwalk_outfile}')
+            else:
+                self.runJwalk(pdb, xl_list=xl_list, max_dist=50.0,
+                              jwalk_results_dir=jwalk_results_dir, vox=1, ncpus=nproc)
+                self.logger.debug('Jwalk calculated')
+
+            Jwalk_df = pd.read_csv(Jwalk_outfile, sep=r'\s+', names=col_names,
+                                   skiprows=1, engine='python', index_col=False)
+            XP_scores = []
+            for rowi, row in Jwalk_df.iterrows():
+                AA1 = self.three_to_one[row['Atom1'].split('-')[0][0:3]]
+                AA2 = self.three_to_one[row['Atom2'].split('-')[0][0:3]]
+                XP_scores.append(self.score_XL((AA1, AA2), row['SASD']))
+            Jwalk_df['XP'] = XP_scores
+            Jwalk_df.to_csv(Jwalk_outfile, index=False, sep='\t')
+            self.logger.info(f'SAVED: {Jwalk_outfile}')
+            return {'outfile': Jwalk_outfile, 'result': Jwalk_df}
+
+        else:
+            # ── trajectory mode ───────────────────────────────────────────────
+
+            # skip-if-exists guard
+            combined_outfile = os.path.join(self.XPpath, f'{self.ID}_Traj{self.Traj}.XP')
+            if os.path.exists(combined_outfile):
+                self.logger.info(f'XP outfile exists, loading: {combined_outfile}')
+                return {'outfile': combined_outfile,
+                        'result': pd.read_csv(combined_outfile, sep='\t')}
+
+            # compute residue pairs once from the reference PDB (topology is frame-invariant)
+            xl_list = os.path.join(self.XPpath, f'{self.ID}_Traj{self.Traj}_XLresidue_pairs.txt')
+            self.find_residue_pairs(pdb, output_file=xl_list)
+
+            # temporary directory for per-frame PDB files
+            frames_dir = os.path.join(self.XPpath, 'frames')
+            os.makedirs(frames_dir, exist_ok=True)
+
+            # parent directory for per-frame Jwalk outputs
+            # runJwalk uses os.mkdir so the parent must already exist
+            jwalk_base_dir = os.path.join(self.XPpath, f'Jwalk_results_{self.ID}_Traj{self.Traj}')
+            os.makedirs(jwalk_base_dir, exist_ok=True)
+
+            # per-frame worker — closure over self, safe for ThreadPoolExecutor
+            def _run_frame(task):
+                frame_idx, frame_pdb, frame_jwalk_dir = task
+                pdb_stem = pathlib.Path(frame_pdb).stem
+                jwalk_outfile = os.path.join(frame_jwalk_dir, 'Jwalk_results',
+                                             f'{pdb_stem}_crosslink_list.txt')
+                print(f'\nProcessing frame {frame_idx} | PDB: {frame_pdb} | Jwalk out: {jwalk_outfile}')
+
+                if not os.path.exists(jwalk_outfile):
+                    self.runJwalk(frame_pdb, xl_list=xl_list, max_dist=50.0,
+                                  jwalk_results_dir=frame_jwalk_dir, vox=1, ncpus=nproc)
+                    print(f'Jwalk completed for frame {frame_idx}')
+
+                frame_df = pd.read_csv(jwalk_outfile, sep=r'\s+', names=col_names,
+                                       skiprows=1, engine='python', index_col=False)
+                print(f'Jwalk results loaded for frame {frame_idx}, calculating XP...')
+
+                xp_scores = [
+                    self.score_XL(
+                        (self.three_to_one[row['Atom1'].split('-')[0][0:3]],
+                         self.three_to_one[row['Atom2'].split('-')[0][0:3]]),
+                        row['SASD']
+                    )
+                    for _, row in frame_df.iterrows()
+                ]
+                frame_df['XP'] = xp_scores
+                frame_df['Frame'] = frame_idx
+                # delete per-frame PDB immediately after use
+                if os.path.exists(frame_pdb):
+                    os.remove(frame_pdb)
+                self.logger.debug(f'Frame {frame_idx}: XP computed, per-frame PDB removed')
+                return frame_df
+
+            frame_tasks = []
+            results = []
+            for ts in self.traj_universe.trajectory[self.start:self.end:self.stride]:
+                frame_idx = ts.frame
+                frame_pdb = os.path.join(frames_dir, f'frame_{frame_idx}.pdb')
+                with mda.Writer(frame_pdb, self.traj_universe.atoms.n_atoms) as W:
+                    W.write(self.traj_universe.atoms)
+
+
+                if traj_nproc > 1:
+                    # parallel: write all frame PDBs first, then process with ThreadPoolExecutor
+                    # (trajectory iteration must be sequential; Jwalk runs are independent)
+                    frame_tasks.append((frame_idx, frame_pdb, os.path.join(jwalk_base_dir, f'frame_{frame_idx}')))
+
+                else:
+                    # sequential: write PDB → run Jwalk → score → delete, one frame at a time
+                    frame_df = _run_frame((frame_idx, frame_pdb, os.path.join(jwalk_base_dir, f'frame_{frame_idx}')))
+                    results.append(frame_df)
+                        
+            if traj_nproc > 1:
+                print(f'\nRunning frame-level Jwalk in parallel with {traj_nproc} workers...')
+                with concurrent.futures.ThreadPoolExecutor(max_workers=traj_nproc) as executor:
+                    results = list(executor.map(_run_frame, frame_tasks))
+            else:
+                print(f'Jwalk run completed for all frames in sequential mode.')
+
+
+            combined_df = pd.concat(results, ignore_index=True)
+            combined_df = combined_df[['Frame'] + [c for c in combined_df.columns if c != 'Frame']]
+            combined_df.to_csv(combined_outfile, index=False, sep='\t')
+            self.logger.info(f'SAVED: {combined_outfile}')
+            return {'outfile': combined_outfile, 'result': combined_df}
     #######################################################################################
 
     #######################################################################################
@@ -565,7 +650,7 @@ class CalculateOP:
     #######################################################################################
 
     #######################################################################################
-    def runJwalk(self, pdb, xl_list:str='NULL', aa1:str='LYS', aa2:str='LYS', max_dist:float=sys.float_info.max, jwalk_results_dir:str='./', vox:int=1, ncpus:int=1):
+    def runJwalk(self, pdb, xl_list:str='NULL', aa1:str='LYS', aa2:str='LYS', max_dist:float=50.0, jwalk_results_dir:str='./', vox:int=1, ncpus:int=1):
         """
             Execute Jwalk with processed command line options
                 
@@ -573,7 +658,7 @@ class CalculateOP:
             xl_list: OPTIONAL - Input path to crosslink list (default: Finds all Lys-to-Lys crosslinks)
             aa1: OPTIONAL - Specify inital crosslink amino acid three letter code (default: LYS)
             aa2: OPTIONAL - Specify ending crosslink amino acid three letter code (default: LYS)
-            max_dist: OPTIONAL - Specify maximum crosslink distance cutoff in Angstroms (default: Keeps all distances)
+            max_dist: OPTIONAL - Specify maximum crosslink distance cutoff in Angstroms (default: 50.0 Angstroms)
             jwalk_results_dir: OPTIONAL - Output path for Jwalk results (default: Out to "./Jwalk_results" in the current working directory)
             vox: OPTIONAL - Specify voxel resolution to use in Angstrom (default: 1 Angstrom)
             ncpus: OPTIONAL - Specify number of cpus to use (default: 1)            
@@ -647,10 +732,13 @@ class CalculateOP:
 
         # load pdb into Jwalk
         structure_instance = PDBTools.read_PDB_file(pdb)
+
         # generate grid of voxel size (vox) that encapsulates pdb
+        print(f"Generating grid for PDB: {pdb}")
         grid = GridTools.makeGrid(structure_instance, vox)
 
         # mark C-alpha positions on grid
+        print(f"Marking C-alpha positions on grid for PDB: {pdb}")
         if xl_list != "NULL": # if specific crosslinks need to be calculated
             crosslink_pairs, aa1_CA, aa2_CA = GridTools.mark_CAlphas_pairs(grid, structure_instance, xl_list)
         else:
@@ -658,8 +746,10 @@ class CalculateOP:
             aa1_CA, aa2_CA = GridTools.mark_CAlphas(grid, structure_instance, aa1, aa2)
         
         # check more rigorously if residues are solvent accessible or not
-        aa1_CA = SurfaceTools.check_solvent_accessibility_freesasa(pdb, aa1_CA, xl_list, amino_acids, ncpus)
-        aa2_CA = SurfaceTools.check_solvent_accessibility_freesasa(pdb, aa2_CA, xl_list, amino_acids, ncpus)
+        print(f"Checking solvent accessibility for C-alpha positions for PDB: {pdb}")
+        aa1_CA, aa2_CA = SurfaceTools.check_solvent_accessibility_freesasa_both(
+            pdb, aa1_CA, aa2_CA, xl_list, amino_acids, ncpus
+        )
 
         dens_map = GridTools.generate_solvent_accessible_surface(grid, structure_instance, aa1_CA, aa2_CA)    
         # identify which residues are on the surface
@@ -669,9 +759,11 @@ class CalculateOP:
         crosslink_pairs = SurfaceTools.update_crosslink_pairs(crosslink_pairs, aa1_CA, aa2_CA, remove_aa1, remove_aa2)
         
         # calculate sasds
+        print(f"Calculating SASDs for PDB: {pdb} with len(crosslink_pairs): {len(crosslink_pairs)}")
         sasds = SASDTools.parallel_BFS(aa1_voxels, aa2_voxels, dens_map, aa1_CA, aa2_CA, crosslink_pairs, max_dist, vox, ncpus, xl_list)
 
         # remove duplicates
+        print(f"Removing duplicate SASDs for PDB: {pdb}")
         sasds = GridTools.remove_duplicates(sasds)
         sasds = SASDTools.get_euclidean_distances(sasds, pdb, aa1, aa2)
             
@@ -679,6 +771,7 @@ class CalculateOP:
         # chain-counter in write_sasd_to_pdb overflows for large residue-pair sets)
         PDBTools.write_sasd_to_txt(sasds, pdb,jwalk_results_dir)
         self.logger.info(f"{len(sasds)} SASDs calculated")
+        print(f"Jwalk completed for PDB: {pdb} | Results saved to: {jwalk_results_dir}")
     #######################################################################################
      
 

@@ -57,38 +57,16 @@ OUTDIR=$DATASTORE/outputs/workflow2
 |------|------|-------|
 | Cα PSF topology | `$REFSTRUCT/1zmr_model_clean_ca.psf` | CG Q/G/K |
 | Cα COR reference | `$REFSTRUCT/1zmr_model_clean_ca.cor` | CG Q/G/K |
-| CG trajectory (demo) | `$CG_TRAJ_DIR/420_prod.dcd` | Single trajectory for testing |
 | CG trajectories (all) | `$CG_TRAJ_DIR/{N}_prod.dcd` (N=1–1000) | Full production run |
 | All-atom PDB topology | `$REFSTRUCT/1zmr_model_clean.pdb` | SASA/XP |
-| AA trajectory (demo) | `$AA_TRAJ_DIR/420_prod_aa.dcd` | AA demo |
 | AA trajectories (all) | `$AA_TRAJ_DIR/{N}_prod_aa.dcd` (N=1–1000) | Full AA production run |
 | Secondary structure defs | `$REFSTRUCT/secondary_struc_defs.txt` | **Required for Q/G/K** |
 | Domain boundary file | `$REFSTRUCT/domain_def.dat` | **Required for Q/G/K** |
-| Trajectory-to-pkl mapping | `$DATASTORE/user_input/metadata/trajnum2file.txt` | **Required for clustering** |
 
 ```bash
 REFSTRUCT=$DATASTORE/user_input/reference_structures
 CG_TRAJ_DIR=$DATASTORE/user_input/cg_trajectories
 AA_TRAJ_DIR=$DATASTORE/user_input/aa_trajectories
-```
-
-### `trajnum2file.txt` — maps trajectory numbers to pkl files
-
-This file maps trajectory numbers to their **G-order-parameter pkl files** (not DCD files). The format is comma-separated:
-
-```
-trajnum,pklfile
-<trajectory_number>,<path_to_pkl_file>
-```
-
-The pre-populated copy at `$DATASTORE/user_input/metadata/trajnum2file.txt` maps all 1000 trajectories to the Combined_GE pkl files in the DATASTORE. It can be regenerated if needed:
-
-```bash
-echo "trajnum,pklfile" > $DATASTORE/user_input/metadata/trajnum2file.txt
-for pkl in $DATASTORE/outputs/workflow2/OP/G/Combined_GE/*.pkl; do
-    num=$(basename $pkl | sed 's/1ZMR_traj\([0-9]*\)_GE.pkl/\1/')
-    echo "$num,$pkl"
-done >> $DATASTORE/user_input/metadata/trajnum2file.txt
 ```
 
 ---
@@ -308,22 +286,6 @@ python scripts/run_OP_on_simulation_traj.py \
     --xp_pdb $REFSTRUCT/1zmr_model_clean.pdb \
     --ops SASA XP
 ```
-
-### Submitting all 1000 trajectories to the cluster
-
-For a full production run, wrap each command in a SLURM script (see `assets/slurm/scripts/run_OP_traj{N}.slurm` for the template). Use `assets/slurm/scripts/gen_slurms.py` to generate one script per trajectory and submit with:
-
-```bash
-for i in $(seq 1 1000); do sbatch assets/slurm/scripts/run_OP_traj${i}.slurm; done
-```
-
-| Flag | CG value | AA value | Notes |
-|------|---------|---------|-------|
-| `--resolution` | `cg` | `aa` | Determines contact-type default and CG flag |
-| `--ent_detection_method` | `1` (GLN) | `2` (TLN) | Detection strategy |
-| `--no_topoly` | present | absent | GLN-only for CG; TLN available for AA |
-| `--ops` | `Q G K` | `SASA XP` | OPs computed |
-
 ---
 
 ## Step 4. Identify and remove artificial mirror conformations
@@ -333,9 +295,11 @@ Before clustering entanglement changes, remove trajectories or frames that are m
 ### Recommended procedure
 
 1. Load Q and K time series for all trajectories.
-2. Identify trajectories where K is persistently high and Q is elevated or anomalous.
-3. Visually inspect flagged frames in VMD.
-4. Record the trajectory numbers that are confirmed mirrors in a list (used as `rm_traj_list` in later steps).
+2. Identify trajectories where K is persistently low (<=0.6) and Q is (>=0.2).
+3. Visually inspect flagged frames in VMD for mirror image conformation. 
+4. Record the trajectory numbers that are confirmed mirrors in a list (used as `rm_traj_list` in [Workflow 3: Sim-to-Experiment](workflow3_sim2exp.md)).
+
+In this tutorial we identified the mirror artifact trajectories as: 65, 75, 155, 162, 199, 231, 264, 286, 296, 314, 354, 417, 448, 472, 473, 474, 577, 579, 591, 703, 704, 732, 758, 812, 833, 870, 876, 944, 967   
 
 > **Important:** The cutoff values for flagging mirror conformations must be tuned for your system by examining the Q and K distributions. 
 
@@ -345,7 +309,27 @@ Before clustering entanglement changes, remove trajectories or frames that are m
 
 This step identifies non-redundant changes in entanglement topology across all trajectories. The pkl file paths are specified in the trajectory-to-pkl mapping CSV (`trajnum2pklfile_path`), which serves as the single source of truth for which pkl files to analyze.
 
-> **Memory warning:** This step can require tens of gigabytes of RAM. Run on a high-memory node.
+### `trajnum2file.txt` — maps trajectory numbers to pkl files
+
+This file maps trajectory numbers to their **G-order-parameter pkl files** (not DCD files). The format is comma-separated:
+
+```
+trajnum,pklfile
+<trajectory_number>,<path_to_pkl_file>
+```
+
+The pre-populated copy at `$DATASTORE/user_input/metadata/trajnum2file.txt` maps all 1000 trajectories to the Combined_GE pkl files in the DATASTORE. It can be regenerated if needed:
+
+```bash
+echo "trajnum,pklfile" > $DATASTORE/user_input/metadata/trajnum2file.txt
+for pkl in $DATASTORE/outputs/workflow2/OP/G/Combined_GE/*.pkl; do
+    num=$(basename $pkl | sed 's/1ZMR_traj\([0-9]*\)_GE.pkl/\1/')
+    echo "$num,$pkl"
+done >> $DATASTORE/user_input/metadata/trajnum2file.txt
+```
+Keep in mind that if you used the `--chunk_frames` argument when calculating G that the .pkl files will be chunked and you will need to specify which chunk to use for each traj. EntDetect currently do not support using multiple chunks per trajectory number. 
+
+> **Memory warning:** This step can require tens of gigabytes of RAM. Run on a high-memory node or reduce the number of frames per trajectory in the clustering pool. 
 
 ### 5a. Build the clustering with Python
 
@@ -527,39 +511,64 @@ sbatch assets/slurm/scripts/run_MSM.slurm
 
 ---
 
-## Step 7. Analyze metastable-state behavior
+## Step 7. Label MSM Data — Define Your Analysis Cases
 
-### 7a. Plot state probability evolution over simulation time
+Before computing statistics or folding pathways, each trajectory needs a **type label** (e.g. `A` or `B`) representing the biological comparison of interest. Any column with consistent string labels per trajectory can serve as the type column downstream.
+
+We demonstrate two contrasting cases:
+
+| Case | Labelling rule | Expected signal |
+|------|---------------|----------------|
+| **Case 1 — Biologically-informed** | A = max Q ≥ 0.80 **and** max G ≤ 0.05 (native-like, non-entangled); B = all others | High JS divergence |
+| **Case 2 — Random (negative control)** | A/B assigned randomly per trajectory (seed=42) | JS divergence ≈ 0 |
+
+> **Define your own cases:** Replace the labelling rule below with whatever biological comparison makes sense for your data — e.g. different temperature conditions, mutation variants, or folding outcomes. The only requirement is a column with consistent string labels per trajectory.
+
+### 7a. Generate annotated MSM mapping files
 
 ```python
-from EntDetect.statistics import MSMStats
+import pandas as pd
+import numpy as np
 
 DATASTORE = "/scratch/ims86/EntDetect_Datastore"
 OUTDIR    = f"{DATASTORE}/outputs/workflow2"
 
-# Point to your Step 6 (MSM) outputs
-msm_meta_file  = f"{OUTDIR}/MSM/1ZMR_prod_MSMmapping_A80pctNative.csv"
-meta_set_file  = f"{OUTDIR}/MSM/1ZMR_prod_meta_set.csv"
-
-outdir         = f"{OUTDIR}/MSM_StateProbabilityStats"
-traj_type_col  = "traj_type_A80pctNative"
-traj_type_list = ['A', 'B']    # trajectory type labels present in the MSM file
-rm_traj_list   = []             # trajectories excluded in Step 4 (none here)
-
-MS = MSMStats(
-    outdir=outdir,
-    msm_data_file=msm_meta_file,
-    meta_set_file=meta_set_file,
-    traj_type_col=traj_type_col,
-    rm_traj_list=rm_traj_list,
-    traj_type_list=traj_type_list
-)
-
-df = MS.StateProbabilityStats()
-MS.Plot_StateProbabilityStats(df=df)
+msm_mapping = pd.read_csv(f"{OUTDIR}/MSM/1ZMR_prod_MSMmapping.csv")
 ```
 
-**Output:** A time series describing the population (probability) of each metastable state over the simulation. Useful for identifying which states are transiently vs persistently populated.
+**Case 1 — Biologically-informed split (Q ≥ 0.8 and G ≤ 0.05):**
+
+```python
+# A = trajectories whose max Q >= 0.80 AND max G <= 0.05 (native-like and non-entangled)
+# B = all others (misfolded or with significant entanglement changes)
+traj_stats = msm_mapping.groupby('traj').agg(max_Q=('Q', 'max'), max_G=('G', 'max'))
+native_trajs = traj_stats[(traj_stats['max_Q'] >= 0.80) & (traj_stats['max_G'] <= 0.05)].index
+msm_mapping['traj_type_QG_native'] = msm_mapping['traj'].isin(native_trajs).map({True: 'A', False: 'B'})
+
+annotated_file_case1 = f"{OUTDIR}/MSM/1ZMR_prod_MSMmapping_QG_native.csv"
+msm_mapping[['traj', 'frame', 'microstate', 'metastablestate', 'Q', 'G', 'traj_type_QG_native']].to_csv(
+    annotated_file_case1, index=False)
+print("Case 1 — trajectory type distribution:")
+print(msm_mapping.groupby('traj')['traj_type_QG_native'].first().value_counts())
+```
+
+> **Note:** The Q and G thresholds are system-specific. Adjust to match the folding and entanglement distributions of your system.
+
+**Case 2 — Random split (negative control):**
+
+```python
+# Randomly assign A/B labels to trajectories (fixed seed for reproducibility)
+rng = np.random.default_rng(seed=42)
+all_trajs = msm_mapping['traj'].unique()
+random_labels = dict(zip(all_trajs, rng.choice(['A', 'B'], size=len(all_trajs))))
+msm_mapping['traj_type_random'] = msm_mapping['traj'].map(random_labels)
+
+annotated_file_case2 = f"{OUTDIR}/MSM/1ZMR_prod_MSMmapping_random.csv"
+msm_mapping[['traj', 'frame', 'microstate', 'metastablestate', 'Q', 'G', 'traj_type_random']].to_csv(
+    annotated_file_case2, index=False)
+print("Case 2 — random type distribution:")
+print(msm_mapping.groupby('traj')['traj_type_random'].first().value_counts())
+```
 
 ### 7b. Visualize representative metastable structures
 
@@ -567,34 +576,87 @@ Identify the representative frame for each metastable state from `1ZMR_prod_MSMm
 
 ---
 
-## Step 8. Compute folding pathway statistics
+## Step 8. Metastable-State Probability Evolution (MSMStats)
 
-Analyse how trajectories transition between metastable states and quantify the divergence between trajectory-type populations using Jensen-Shannon (JS) divergence.
+Using `MSMStats`, compute how each trajectory population (A and B) distributes across metastable states over simulation time. Run separately for each labelled case to compare the biological signal against the random baseline.
 
-### 8a. Annotate the MSM mapping with trajectory-type labels
+**Input:** Annotated MSM mapping CSV files from Step 7  
+**Output:** `$OUTDIR/MSM_StateProbabilityStats_{case}/` — probability plots and summary tables
 
-The MSM mapping CSV produced in Step 6 does not contain trajectory-type labels. Add a column classifying each trajectory based on a Q threshold. Trajectories that ever reach ≥ 80 % of native contacts are labelled 'A' (native-like); the remainder are 'B':
+### 8a. Compute state probability statistics
 
 ```python
-import pandas as pd
+from EntDetect.statistics import MSMStats
+import os
 
 DATASTORE = "/scratch/ims86/EntDetect_Datastore"
 OUTDIR    = f"{DATASTORE}/outputs/workflow2"
 
-msm_mapping = pd.read_csv(f"{OUTDIR}/MSM/1ZMR_prod_MSMmapping.csv")
-
-# A = trajectories whose max Q >= 0.80; B = all others
-max_q = msm_mapping.groupby('traj')['Q'].transform('max')
-msm_mapping['traj_type_A80pctNative'] = max_q.ge(0.80).map({True: 'A', False: 'B'})
-
-annotated_file = f"{OUTDIR}/MSM/1ZMR_prod_MSMmapping_A80pctNative.csv"
-msm_mapping.to_csv(annotated_file, index=False)
-print(msm_mapping.groupby('traj')['traj_type_A80pctNative'].first().value_counts())
+meta_set_file  = f"{OUTDIR}/MSM/1ZMR_prod_meta_set.csv"
+traj_type_list = ['A', 'B']
+rm_traj_list   = []
 ```
 
-> **Note:** The 80 % threshold is system-specific. Adjust to match the Q distribution of your system.
+**Case 1 — Biologically-informed split:**
 
-### 8b. Compute folding pathways and Jensen-Shannon divergence with Python
+```python
+outdir_stats_case1 = f"{OUTDIR}/MSM_StateProbabilityStats_QG_native"
+os.makedirs(outdir_stats_case1, exist_ok=True)
+
+MS1 = MSMStats(
+    outdir=outdir_stats_case1,
+    msm_data_file=f"{OUTDIR}/MSM/1ZMR_prod_MSMmapping_QG_native.csv",
+    meta_set_file=meta_set_file,
+    tarj_type_col='traj_type_QG_native',
+    rm_traj_list=rm_traj_list,
+    traj_type_list=traj_type_list,
+)
+
+df1 = MS1.StateProbabilityStats()
+MS1.Plot_StateProbabilityStats(df=df1)
+```
+
+**Case 2 — Random split (negative control):**
+
+```python
+outdir_stats_case2 = f"{OUTDIR}/MSM_StateProbabilityStats_random"
+os.makedirs(outdir_stats_case2, exist_ok=True)
+
+MS2 = MSMStats(
+    outdir=outdir_stats_case2,
+    msm_data_file=f"{OUTDIR}/MSM/1ZMR_prod_MSMmapping_random.csv",
+    meta_set_file=meta_set_file,
+    tarj_type_col='traj_type_random',
+    rm_traj_list=rm_traj_list,
+    traj_type_list=traj_type_list,
+)
+
+df2 = MS2.StateProbabilityStats()
+MS2.Plot_StateProbabilityStats(df=df2)
+```
+
+**Output:** Time series plots showing the population (probability) of each metastable state over simulation time, one plot per case. Useful for identifying which states are transiently vs persistently populated by each trajectory subpopulation.
+
+---
+
+## Step 9. Folding Pathways and Jensen-Shannon Divergence
+
+Analyse how trajectories transition between metastable states and quantify the divergence between the two populations using Jensen-Shannon (JS) divergence.
+
+We demonstrate **two contrasting cases** to illustrate what the JS signal looks like under biologically meaningful vs. meaningless partitioning.
+
+| Case | Labelling rule | Expected JS signal |
+|------|---------------|-------------------|
+| **Case 1 — Biologically-informed split** | A = correctly folded (max Q ≥ 0.8 **and** max G ≤ 0.05); B = misfolded/entangled | High divergence — A and B follow distinct metastable-state progressions |
+| **Case 2 — Random split (negative control)** | A/B assigned randomly per trajectory (fixed seed) | Near-zero divergence — populations are statistically identical by construction |
+
+Running both cases back-to-back makes the biological signal immediately recognisable against baseline noise.
+
+### 9a. Compute folding pathways and Jensen-Shannon divergence
+
+Run `FoldingPathwayStats` for each case. `post_trans()` traces state-to-state transitions for each trajectory, removing loops to yield the minimal directed pathway. `JS_divergence()` computes a windowed Jensen-Shannon divergence between the two populations over simulation time.
+
+**Case 1 — Biologically-informed split:**
 
 ```python
 from EntDetect.statistics import FoldingPathwayStats
@@ -602,35 +664,76 @@ from EntDetect.statistics import FoldingPathwayStats
 DATASTORE = "/scratch/ims86/EntDetect_Datastore"
 OUTDIR    = f"{DATASTORE}/outputs/workflow2"
 
-msm_data      = pd.read_csv(f"{OUTDIR}/MSM/1ZMR_prod_MSMmapping_A80pctNative.csv")
-meta_set_file = f"{OUTDIR}/MSM/1ZMR_prod_meta_set.csv"
-outdir        = f"{OUTDIR}/FoldingPathway_A80pctNative"
+msm_data_case1 = pd.read_csv(f"{OUTDIR}/MSM/1ZMR_prod_MSMmapping_QG_native.csv")
+meta_set_file  = f"{OUTDIR}/MSM/1ZMR_prod_meta_set.csv"
+outdir_case1   = f"{OUTDIR}/FoldingPathway_QG_native"
 
-FP = FoldingPathwayStats(
-    msm_data=msm_data,
+FP1 = FoldingPathwayStats(
+    msm_data=msm_data_case1,
     meta_set_file=meta_set_file,
-    tarj_type_col='traj_type_A80pctNative',
+    tarj_type_col='traj_type_QG_native',
     traj_type_list=['A', 'B'],
-    outdir=outdir,
-    rm_traj_list=[],   # trajectories excluded in Step 4 (none here)
+    outdir=outdir_case1,
+    rm_traj_list=[],
 )
 
-folding_pathways = FP.post_trans()
-JS_divergence    = FP.JS_divergence()
+folding_pathways_case1 = FP1.post_trans()
+FP1.JS_divergence()
 ```
 
-`post_trans()` traces state-to-state transitions for each trajectory, removing loops to yield the minimal directed pathway. `JS_divergence()` computes a windowed Jensen-Shannon divergence between the A and B trajectory-type populations over simulation time.
+**Case 2 — Random split:**
+
+```python
+msm_data_case2 = pd.read_csv(f"{OUTDIR}/MSM/1ZMR_prod_MSMmapping_random.csv")
+outdir_case2   = f"{OUTDIR}/FoldingPathway_random"
+
+FP2 = FoldingPathwayStats(
+    msm_data=msm_data_case2,
+    meta_set_file=meta_set_file,
+    tarj_type_col='traj_type_random',
+    traj_type_list=['A', 'B'],
+    outdir=outdir_case2,
+    rm_traj_list=[],
+)
+
+folding_pathways_case2 = FP2.post_trans()
+FP2.JS_divergence()
+```
 
 | JS divergence | Interpretation |
 |---------------|----------------|
 | Near 0 | A and B explore similar state distributions |
 | Near 1 | A and B have divergent state usage |
 
-### 8c. Using the command-line interface
+**Expected outcome:**
+- Case 1 should show **elevated JS divergence** — the native-like (A) and misfolded (B) populations traverse metastable states differently.
+- Case 2 should show **JS divergence near 0** throughout — random labels produce no systematic separation.
 
-For convenience, use the `scripts/run_Foldingpathway.py` script directly (see "Running folding pathway analysis as a single script" below for full details).
+### 9b. Using the command-line interface
 
-### 8d. Expected outputs
+Use `scripts/run_Foldingpathway.py` for each case (see "Running folding pathway analysis as a single script" below):
+
+```bash
+# Case 1 — biologically-informed split
+python scripts/run_Foldingpathway.py \
+    --msm_data_file $OUTDIR/MSM/1ZMR_prod_MSMmapping_QG_native.csv \
+    --meta_set_file $OUTDIR/MSM/1ZMR_prod_meta_set.csv \
+    --traj_type_col traj_type_QG_native \
+    --traj_type_list A B \
+    --outdir        $OUTDIR/FoldingPathway_QG_native
+
+# Case 2 — random split (negative control)
+python scripts/run_Foldingpathway.py \
+    --msm_data_file $OUTDIR/MSM/1ZMR_prod_MSMmapping_random.csv \
+    --meta_set_file $OUTDIR/MSM/1ZMR_prod_meta_set.csv \
+    --traj_type_col traj_type_random \
+    --traj_type_list A B \
+    --outdir        $OUTDIR/FoldingPathway_random
+```
+
+### 9c. Expected outputs
+
+Each case produces the same file set in its respective output directory:
 
 | File | Contents |
 |------|----------|
@@ -641,24 +744,37 @@ For convenience, use the `scripts/run_Foldingpathway.py` script directly (see "R
 
 ## Running folding pathway analysis as a single script
 
-The `scripts/run_Foldingpathway.py` script computes both folding pathways and JS divergence in a single call. It requires the MSM mapping CSV to already contain the trajectory-type column (see Step 8a).
+The `scripts/run_Foldingpathway.py` script computes both folding pathways and JS divergence in a single call. It requires the MSM mapping CSV to already contain the trajectory-type column (see Step 7). Run it separately for each case.
 
 ```bash
 source ~/.bashrc
 conda activate entdetect
 
 DATASTORE=/scratch/ims86/EntDetect_Datastore
+OUTDIR=$DATASTORE/outputs/workflow2
 
-mkdir -p $DATASTORE/outputs/workflow2/FoldingPathway_A80pctNative
-mkdir -p $DATASTORE/outputs/workflow2/FoldingPathway_A80pctNative/logs
+# Case 1 — biologically-informed split (Q >= 0.8 and G <= 0.05)
+mkdir -p $OUTDIR/FoldingPathway_QG_native/logs
 
 python scripts/run_Foldingpathway.py \
-    --msm_data_file $DATASTORE/outputs/workflow2/MSM/1ZMR_prod_MSMmapping_A80pctNative.csv \
-    --meta_set_file $DATASTORE/outputs/workflow2/MSM/1ZMR_prod_meta_set.csv \
-    --traj_type_col traj_type_A80pctNative \
+    --msm_data_file $OUTDIR/MSM/1ZMR_prod_MSMmapping_QG_native.csv \
+    --meta_set_file $OUTDIR/MSM/1ZMR_prod_meta_set.csv \
+    --traj_type_col traj_type_QG_native \
     --traj_type_list A B \
-    --outdir        $DATASTORE/outputs/workflow2/FoldingPathway_A80pctNative \
-    --logdir        $DATASTORE/outputs/workflow2/FoldingPathway_A80pctNative/logs \
+    --outdir        $OUTDIR/FoldingPathway_QG_native \
+    --logdir        $OUTDIR/FoldingPathway_QG_native/logs \
+    --log_level     INFO
+
+# Case 2 — random split (negative control)
+mkdir -p $OUTDIR/FoldingPathway_random/logs
+
+python scripts/run_Foldingpathway.py \
+    --msm_data_file $OUTDIR/MSM/1ZMR_prod_MSMmapping_random.csv \
+    --meta_set_file $OUTDIR/MSM/1ZMR_prod_meta_set.csv \
+    --traj_type_col traj_type_random \
+    --traj_type_list A B \
+    --outdir        $OUTDIR/FoldingPathway_random \
+    --logdir        $OUTDIR/FoldingPathway_random/logs \
     --log_level     INFO
 ```
 

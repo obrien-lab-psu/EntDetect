@@ -182,7 +182,7 @@ def main(argv=None):
         logger.info(f'SASA keys: {list(SASAdata_dict.keys())}')
 
     if 'XP' in ops:
-        XPdata_dict = CalcOP.XP(pdb=args.xp_pdb)
+        XPdata_dict = CalcOP.XP(pdb=args.xp_pdb, use_traj=True, nproc=args.nproc)
         logger.info(f'XP keys: {list(XPdata_dict.keys())}')
     ###---------------------------------------------------------------------------------------------------------
 

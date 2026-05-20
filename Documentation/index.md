@@ -49,13 +49,15 @@ source ~/.bashrc        # ensure conda is initialized
 conda activate entdetect
 ```
 
-### 2. Set the datastore path
+### 2. Fetch and set the datastore path
 
 All workflow tutorials derive every path from a **single variable**. Set it once at the start of every session (or add it to your script):
 
 ```bash
 DATASTORE=/scratch/ims86/EntDetect_Datastore
 ```
+
+You can fetch the EntDetect datastore by using gocmds detailed in this [CyVerse Datastore Access Tutorial](./accessing_entdetect_datastore.md).  
 
 The datastore has the following layout:
 
