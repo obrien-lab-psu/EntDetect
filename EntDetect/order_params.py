@@ -8,6 +8,7 @@ import numpy as np
 import glob
 import MDAnalysis as mda
 import mdtraj as md
+import freesasa
 from scipy.spatial.distance import pdist, squareform
 from topoly import lasso_type  # used pip
 import itertools
@@ -81,7 +82,7 @@ class CalculateOP:
         self.dcd = dcd
         self.logger.debug(f'dcd: {self.dcd}')
 
-        if self.cor != '' and self.cor.endswith('.cor'):
+        if self.cor is not None and self.cor != '' and self.cor.endswith('.cor'):
             self.ref_universe = mda.Universe(self.psf, self.cor, format='CRD')
             self.logger.debug(f'ref_universe: {self.ref_universe}')
 
@@ -330,8 +331,11 @@ class CalculateOP:
     #######################################################################################
     def SASA(self,) -> dict:
         """
-        Calculate the solvent accessible surface area (SASA) for each frame of the DCD
+        Calculate the solvent accessible surface area (SASA) for each frame of the DCD using freesasa.
+        Uses freesasa library which is robust to coordinate artifacts (e.g., overlapping atoms).
         """
+        import tempfile
+        
         # make directory for SASA data if it doesnt exist
         self.SASAPATH = os.path.join(self.outdir, 'SASA')
         if not os.path.exists(self.SASAPATH):
@@ -341,11 +345,9 @@ class CalculateOP:
         # Step -1: get the resid list from the MDAnalysis universe self.traj_universe
         # this is the list of residues in the trajectory
         resids = self.traj_universe.atoms.residues.resids
-        #print(f'resids: {resids}')
   
-        # Step 0: load the dcd and psf into a mdtraj trajectory
+        # Step 0: load the dcd and psf into a mdtraj trajectory for frame iteration
         traj = md.load(self.dcd, top=self.psf)
-        #print(f'traj: {traj}')
 
         # Get the total frames and then adjust the frame_number to start from there
         total_frames = len(traj)
@@ -356,29 +358,78 @@ class CalculateOP:
             frame_number = total_frames + self.start
         self.logger.debug(f'frame_number: {frame_number}')
     
-        # Step 1: loop through the trajectory and calculate the SASA for each frame
-        self.logger.info(f'Step 1: loop through the trajectory and calculate the SASA for each frame')
+        # Step 1: loop through the trajectory and calculate the SASA for each frame using freesasa
+        self.logger.info(f'Step 1: loop through the trajectory and calculate the SASA for each frame using freesasa')
 
         SASAoutput = {'Time(ns)':[], 'Frame':[], 'resid':[], 'SASA(nm^2)':[]}
+        last_valid_sasa = None  # Store last valid SASA results for fallback
+        
         for ts in traj[self.start:self.end:self.stride]:
-            # calculate the SASA for the current frame
-            sasa = md.shrake_rupley(ts, mode='residue', probe_radius=0.14, n_sphere_points=1000)
-            #print(f'sasa: {sasa} {sasa.shape}')
-
-            # get the time and frame number
-            frame_time = ts.time[0]/1000
-            #print(frame_time, frame_number)
-
-            # add the results to the output dictionary
-            for resididx, res_sasa in enumerate(sasa[0]):
-                #print(res_sasa)
-                SASAoutput['Time(ns)'] += [frame_time]
-                SASAoutput['Frame'] += [frame_number]
-                SASAoutput['resid'] += [resids[resididx]]
-                SASAoutput['SASA(nm^2)'] += [res_sasa]
-                #print(f'SASAoutput: {SASAoutput}')
-
-            frame_number += 1
+            # Save frame to temporary PDB
+            with tempfile.NamedTemporaryFile(suffix='.pdb', delete=False) as tmp:
+                tmp_pdb = tmp.name
+            
+            try:
+                # Check for NaN coordinates before attempting to save PDB
+                positions = ts.xyz
+                if np.any(np.isnan(positions)):
+                    nan_atoms = np.where(np.any(np.isnan(positions), axis=1))[0]
+                    self.logger.warning(f'Frame {frame_number} has NaN coordinates in {len(nan_atoms)} atoms. Using SASA from previous frame.')
+                    
+                    # Use last valid SASA results if available
+                    if last_valid_sasa is not None:
+                        frame_time = ts.time[0]/1000
+                        for resididx, res_sasa in enumerate(last_valid_sasa):
+                            SASAoutput['Time(ns)'] += [frame_time]
+                            SASAoutput['Frame'] += [frame_number]
+                            SASAoutput['resid'] += [resids[resididx]]
+                            SASAoutput['SASA(nm^2)'] += [res_sasa]
+                    else:
+                        self.logger.error(f'Frame {frame_number} has NaN coordinates but no previous valid SASA to fall back to. Skipping this frame.')
+                    
+                    frame_number += 1
+                    continue
+                
+                ts.save_pdb(tmp_pdb)
+                
+                # Load with freesasa and calculate SASA
+                structure = freesasa.Structure(tmp_pdb)
+                result = freesasa.calc(structure)
+                
+                # Get per-residue SASA from freesasa result
+                # residueAreas() returns nested dict: {chain: {res_num: ResidueArea_object}}
+                res_areas = result.residueAreas()
+                sasa_per_residue = []
+                
+                # Extract residues in order across all chains
+                for chain in sorted(res_areas.keys()):
+                    for res_num in sorted(res_areas[chain].keys(), key=lambda x: int(x)):
+                        # Get total SASA for this residue (in Angstroms^2)
+                        res_sasa = res_areas[chain][res_num].total
+                        sasa_per_residue.append(res_sasa)
+                
+                # Convert from Angstroms^2 to nm^2 (1 nm^2 = 100 Angstroms^2)
+                sasa_per_residue = np.array(sasa_per_residue) / 100.0
+                
+                # Store this as last valid SASA for fallback
+                last_valid_sasa = sasa_per_residue
+                
+                # get the time
+                frame_time = ts.time[0]/1000
+                
+                # add the results to the output dictionary
+                for resididx, res_sasa in enumerate(sasa_per_residue):
+                    SASAoutput['Time(ns)'] += [frame_time]
+                    SASAoutput['Frame'] += [frame_number]
+                    SASAoutput['resid'] += [resids[resididx]]
+                    SASAoutput['SASA(nm^2)'] += [res_sasa]
+                
+                frame_number += 1
+                
+            finally:
+                # Clean up temporary file
+                if os.path.exists(tmp_pdb):
+                    os.remove(tmp_pdb)
         
         # Step 2: save the SASA output
         self.logger.info(f'Step 2: save the SASA output')
@@ -543,8 +594,29 @@ class CalculateOP:
 
             frame_tasks = []
             results = []
+            last_valid_frame_result = None  # Store last valid frame results for fallback
+            
             for ts in self.traj_universe.trajectory[self.start:self.end:self.stride]:
                 frame_idx = ts.frame
+                
+                # Check for NaN coordinates before attempting to write PDB
+                positions = self.traj_universe.atoms.positions
+                if np.any(np.isnan(positions)):
+                    nan_atoms = np.where(np.any(np.isnan(positions), axis=1))[0]
+                    self.logger.warning(f'Frame {frame_idx} has NaN coordinates in {len(nan_atoms)} atoms. Using XP from previous frame.')
+                    
+                    # Use last valid frame results if available
+                    if last_valid_frame_result is not None:
+                        # Copy previous frame's results but update frame number
+                        fallback_frame_result = last_valid_frame_result.copy()
+                        fallback_frame_result['Frame'] = frame_idx
+                        results.append(fallback_frame_result)
+                        self.logger.debug(f'Frame {frame_idx}: Used fallback XP from previous frame')
+                    else:
+                        self.logger.error(f'Frame {frame_idx} has NaN coordinates but no previous valid XP to fall back to. Skipping this frame.')
+                    
+                    continue
+                
                 frame_pdb = os.path.join(frames_dir, f'frame_{frame_idx}.pdb')
                 with mda.Writer(frame_pdb, self.traj_universe.atoms.n_atoms) as W:
                     W.write(self.traj_universe.atoms)
@@ -559,11 +631,15 @@ class CalculateOP:
                     # sequential: write PDB → run Jwalk → score → delete, one frame at a time
                     frame_df = _run_frame((frame_idx, frame_pdb, os.path.join(jwalk_base_dir, f'frame_{frame_idx}')))
                     results.append(frame_df)
+                    last_valid_frame_result = frame_df  # Update fallback with this valid result
                         
             if traj_nproc > 1:
                 print(f'\nRunning frame-level Jwalk in parallel with {traj_nproc} workers...')
                 with concurrent.futures.ThreadPoolExecutor(max_workers=traj_nproc) as executor:
                     results = list(executor.map(_run_frame, frame_tasks))
+                # Update fallback with last result from parallel execution
+                if results:
+                    last_valid_frame_result = results[-1]
             else:
                 print(f'Jwalk run completed for all frames in sequential mode.')
 
@@ -774,6 +850,165 @@ class CalculateOP:
         print(f"Jwalk completed for PDB: {pdb} | Results saved to: {jwalk_results_dir}")
     #######################################################################################
      
+
+#########################################################################################
+class CollectOP:
+    """
+    Aggregate per-trajectory CalculateOP outputs into the single .npy arrays
+    expected by MassSpec (compare_sim2exp).
+
+    Reads
+    -----
+    {sasa_dir}/{ID}_Traj{N}.SASA   – CSV written by CalculateOP.SASA()
+    {xp_dir}/{ID}_Traj{N}.XP       – TSV written by CalculateOP.XP()
+
+    Writes
+    ------
+    SASA.npy  : float64 array  (n_traj, n_frames, prot_len)   units Å²
+    Jwalk.npy : object  array  (n_traj, n_frames)
+                each element is a dict
+                { 'RESNUM|CHAIN-RESNUM|CHAIN' : {'Euclidean': float, 'Jwalk': float} }
+
+    Trajectories whose output file is missing are filled with NaN (SASA) or
+    left as None (Jwalk) so that MassSpec can skip them via its existing NaN
+    filtering logic.
+    """
+
+    def __init__(self, sasa_dir: str, xp_dir: str, outdir: str, ID: str,
+                 n_traj: int, n_frames: int, prot_len: int):
+        """
+        Parameters
+        ----------
+        sasa_dir  : directory containing {ID}_Traj{N}.SASA files
+        xp_dir    : directory containing {ID}_Traj{N}.XP   files
+        outdir    : directory where SASA.npy and Jwalk.npy are written
+        ID        : protein ID used in file naming (e.g. '1ZMR')
+        n_traj    : total number of trajectories (files named 1 … n_traj)
+        n_frames  : number of frames per trajectory stored in each file
+        prot_len  : number of residues in the protein
+        """
+        self.sasa_dir = sasa_dir
+        self.xp_dir   = xp_dir
+        self.outdir   = outdir
+        self.ID       = ID
+        self.n_traj   = n_traj
+        self.n_frames = n_frames
+        self.prot_len = prot_len
+        os.makedirs(outdir, exist_ok=True)
+        self.logger   = setup_logger('CollectOP', outdir)
+
+    # ------------------------------------------------------------------
+    # helpers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _atom_to_key_part(atom_str: str) -> str:
+        """Parse Jwalk atom string to key fragment.
+
+        'MET-1-A-CA'  →  '1|A'
+        """
+        parts = atom_str.split('-')
+        return f'{parts[1]}|{parts[2]}'
+
+    # ------------------------------------------------------------------
+    def collect_SASA(self, outfile: str = 'SASA.npy') -> str:
+        """Read all {ID}_Traj{N}.SASA CSVs, convert nm² → Å² (×100), pivot
+        each to (n_frames, prot_len), stack into (n_traj, n_frames, prot_len)
+        and save.  Missing trajectory files are filled with NaN.
+
+        Returns the absolute path to the saved .npy file.
+        """
+        out_path = os.path.join(self.outdir, outfile)
+        sasa_arr = np.full(
+            (self.n_traj, self.n_frames, self.prot_len),
+            np.nan,
+            dtype=np.float64,
+        )
+
+        for traj_num in range(1, self.n_traj + 1):
+            fpath = os.path.join(self.sasa_dir, f'{self.ID}_Traj{traj_num}.SASA')
+            if not os.path.isfile(fpath):
+                self.logger.warning(f'Missing SASA file: {fpath}')
+                continue
+
+            df = pd.read_csv(fpath)
+
+            # pivot to (n_frames, prot_len): rows = frames (sorted), cols = resids (sorted)
+            pivot = (
+                df.pivot_table(index='Frame', columns='resid',
+                               values='SASA(nm^2)', aggfunc='first')
+                  .sort_index()        # ascending frame order
+                  .sort_index(axis=1)  # ascending resid order
+            )
+            arr = pivot.values  # shape (n_frames, prot_len)
+
+            if arr.shape != (self.n_frames, self.prot_len):
+                self.logger.warning(
+                    f'Traj {traj_num}: unexpected shape {arr.shape}, '
+                    f'expected ({self.n_frames}, {self.prot_len}) – skipping'
+                )
+                continue
+
+            sasa_arr[traj_num - 1] = arr * 100.0  # nm² → Å²
+            self.logger.info(f'Collected SASA: Traj {traj_num}')
+
+        np.save(out_path, sasa_arr)
+        self.logger.info(f'SAVED: {out_path}  shape={sasa_arr.shape}')
+        return out_path
+
+    # ------------------------------------------------------------------
+    def collect_Jwalk(self, outfile: str = 'Jwalk.npy') -> str:
+        """Read all {ID}_Traj{N}.XP TSVs and reconstruct the per-frame dict
+        structure used by MassSpec.  Save an object array of shape
+        (n_traj, n_frames).
+
+        Each array element is a dict::
+
+            { 'RESNUM|CHAIN-RESNUM|CHAIN' : {'Euclidean': float, 'Jwalk': float} }
+
+        The 'SASD' column from the XP file maps to the 'Jwalk' key; the
+        'Euclidean Distance' column maps to 'Euclidean'.
+        Missing trajectory files leave the corresponding row as None entries.
+
+        Returns the absolute path to the saved .npy file.
+        """
+        out_path  = os.path.join(self.outdir, outfile)
+        jwalk_arr = np.empty((self.n_traj, self.n_frames), dtype=object)
+
+        for traj_num in range(1, self.n_traj + 1):
+            fpath = os.path.join(self.xp_dir, f'{self.ID}_Traj{traj_num}.XP')
+            if not os.path.isfile(fpath):
+                self.logger.warning(f'Missing XP file: {fpath}')
+                continue
+
+            df = pd.read_csv(fpath, sep='\t')
+            frames = sorted(df['Frame'].unique())
+
+            if len(frames) != self.n_frames:
+                self.logger.warning(
+                    f'Traj {traj_num}: found {len(frames)} frames, '
+                    f'expected {self.n_frames} – skipping'
+                )
+                continue
+
+            for frame_idx, frame_num in enumerate(frames):
+                fdf   = df[df['Frame'] == frame_num]
+                fdict = {}
+                for _, row in fdf.iterrows():
+                    k1  = self._atom_to_key_part(row['Atom1'])
+                    k2  = self._atom_to_key_part(row['Atom2'])
+                    fdict[f'{k1}-{k2}'] = {
+                        'Euclidean': float(row['Euclidean Distance']),
+                        'Jwalk':     float(row['SASD']),
+                    }
+                jwalk_arr[traj_num - 1, frame_idx] = fdict
+
+            self.logger.info(f'Collected Jwalk/XP: Traj {traj_num}')
+
+        np.save(out_path, jwalk_arr, allow_pickle=True)
+        self.logger.info(f'SAVED: {out_path}  shape={jwalk_arr.shape}')
+        return out_path
+#########################################################################################
+
 
 ## Round GaussLink values
 def custom_round(number):

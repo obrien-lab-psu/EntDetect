@@ -10,6 +10,24 @@ Compute order parameters (Q, G, K, SASA, XP) across simulation trajectories, clu
 
 ---
 
+## Table of Contents
+
+- [Step 1. Activate your environment and set paths](#step-1-activate-your-environment-and-set-paths)
+- [Step 2. Compute order parameters Q, G, K on the CG trajectory](#step-2-compute-order-parameters-q-g-k-on-the-cg-trajectory)
+- [Step 3. Compute order parameters SASA and XP on the all-atom trajectory](#step-3-compute-order-parameters-sasa-and-xp-on-the-all-atom-trajectory)
+- [Running the order parameter analysis as a single script](#running-the-order-parameter-analysis-as-a-single-script)
+- [Step 4. Identify and remove artificial mirror conformations](#step-4-identify-and-remove-artificial-mirror-conformations)
+- [Step 5. Cluster non-native entanglement changes](#step-5-cluster-non-native-entanglement-changes)
+- [Running non-native clustering as a single script](#running-non-native-clustering-as-a-single-script)
+- [Step 6. Build a Markov state model (MSM)](#step-6-build-a-markov-state-model-msm)
+- [Running MSM construction as a single script](#running-msm-construction-as-a-single-script)
+- [Step 7. Label MSM Data — Define Your Analysis Cases](#step-7-label-msm-data--define-your-analysis-cases)
+- [Step 8. Metastable-State Probability Evolution (MSMStats)](#step-8-metastable-state-probability-evolution-msmstats)
+- [Step 9. Folding Pathways and Jensen-Shannon Divergence](#step-9-folding-pathways-and-jensen-shannon-divergence)
+- [Running folding pathway analysis as a single script](#running-folding-pathway-analysis-as-a-single-script)
+
+---
+
 ## Typical runtime
 
 | Step | Runtime |
@@ -709,29 +727,7 @@ FP2.JS_divergence()
 - Case 1 should show **elevated JS divergence** — the native-like (A) and misfolded (B) populations traverse metastable states differently.
 - Case 2 should show **JS divergence near 0** throughout — random labels produce no systematic separation.
 
-### 9b. Using the command-line interface
-
-Use `scripts/run_Foldingpathway.py` for each case (see "Running folding pathway analysis as a single script" below):
-
-```bash
-# Case 1 — biologically-informed split
-python scripts/run_Foldingpathway.py \
-    --msm_data_file $OUTDIR/MSM/1ZMR_prod_MSMmapping_QG_native.csv \
-    --meta_set_file $OUTDIR/MSM/1ZMR_prod_meta_set.csv \
-    --traj_type_col traj_type_QG_native \
-    --traj_type_list A B \
-    --outdir        $OUTDIR/FoldingPathway_QG_native
-
-# Case 2 — random split (negative control)
-python scripts/run_Foldingpathway.py \
-    --msm_data_file $OUTDIR/MSM/1ZMR_prod_MSMmapping_random.csv \
-    --meta_set_file $OUTDIR/MSM/1ZMR_prod_meta_set.csv \
-    --traj_type_col traj_type_random \
-    --traj_type_list A B \
-    --outdir        $OUTDIR/FoldingPathway_random
-```
-
-### 9c. Expected outputs
+### 9b. Expected outputs
 
 Each case produces the same file set in its respective output directory:
 

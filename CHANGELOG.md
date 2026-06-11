@@ -5,6 +5,39 @@ All notable changes to EntDetect will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-11
+
+### Added
+- `Documentation/workflow3_sim2exp.ipynb` — comprehensive Jupyter notebook for Workflow 3 (Sim-to-Experiment consistency testing). Covers experimental data loading, SASA/XP array collection, LiP-MS/XL-MS consistency test execution on full production ensemble (1000 trajectories), and result visualization. Includes prominent runtime warnings (1–3 hours) to set user expectations.
+- `collect_jwalk_optimized.py` — optimized Jwalk collection script for standalone cluster execution; designed for submission as long-running SLURM job.
+- `assets/slurm/scripts/run_workflow3_jwalk_collect.slurm` — SLURM job script for collecting Jwalk data overnight with 6-hour walltime.
+- `scripts/test_workflow3_collection.py` — comprehensive test script for verifying SASA/XP files and testing CollectOP on full 1000-trajectory ensemble.
+- Enhanced documentation with table of contents in Workflow 1, 2, and 3 markdown files for improved navigation.
+- Documentation: `workflow3_collection_test_results.md` — detailed test results and performance analysis for OP collection (superseded by notebook).
+
+### Fixed
+- `EntDetect/order_params.py` — **NaN coordinate handling in SASA and XP methods**: Added robust detection and fallback mechanism for trajectory frames with NaN coordinates (corrupted frames). When NaN detected:
+  - **SASA method**: Uses previous frame's per-residue SASA values with current frame's timestamp; preserves frame indexing
+  - **XP method**: Copies previous frame's cross-link DataFrame and updates Frame column to current index; supports both sequential and parallel execution modes
+  - Frames with NaN are no longer skipped; frame counter increments normally to maintain alignment with original trajectory indexing
+  - Comprehensive logging reports which frames/atoms contain NaN and whether fallback was successful
+  - All 1000 trajectories now complete SASA/XP collection without errors or gaps
+- `EntDetect/order_params.py` — `CollectOP.collect_SASA()` now correctly converts units from nm² to Ų (×100) and properly handles trajectories with missing files (fills with NaN).
+- `EntDetect/order_params.py` — `CollectOP.collect_Jwalk()` now correctly parses XP file column names and maps `SASD` → `'Jwalk'` in output dictionary.
+
+### Changed
+- **Workflow 2 documentation** (`workflow2_trajectory_analysis.md`):
+  - Removed duplicate "Using the command-line interface" section (9b) that duplicated the comprehensive "Running folding pathway analysis as a single script" section
+  - Renumbered former section 9c to 9b (Expected outputs)
+  - Added "Running folding pathway analysis as a single script" to table of contents for complete TOC coverage
+- **Workflow 1, 2, 3 documentation**: Enhanced table of contents with all "Running X as a single script" sections for improved discoverability and user navigation.
+- **Code organization**: All test/debug scripts for NaN handling consolidated into single diagnostic test suite.
+
+### Performance
+- SASA collection: ~60 seconds for 1000 trajectories (✓ verified)
+- Jwalk collection: ~14 seconds per trajectory, estimated 3–4 hours for full ensemble
+- Consistency test: 1–3 hours on full production data (1000 trajectories × 335 frames each)
+
 ## [1.1.7] - 2026-05-15
 
 ### Added

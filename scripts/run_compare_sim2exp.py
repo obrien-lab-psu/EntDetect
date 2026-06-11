@@ -1,34 +1,56 @@
 from EntDetect.gaussian_entanglement import GaussianEntanglement
 from EntDetect.clustering import ClusterNativeEntanglements, MSMNonNativeEntanglementClustering
-from EntDetect.order_params import CalculateOP
+from EntDetect.order_params import CalculateOP, CollectOP
 from EntDetect.compare_sim2exp import MassSpec
 
 """
-python scripts/run_compare_sim2exp.py 
---msm_data_file /path/to/msm_data.csv 
---meta_dist_file /path/to/meta_dist.csv 
---LiPMS_exp_file /path/to/LiPMS_exp.csv 
---sasa_data_file /path/to/sasa_data.csv 
---XLMS_exp_file /path/to/XLMS_exp.csv 
---dist_data_file /path/to/dist_data.csv 
---cluster_data_file /path/to/cluster_data.csv 
---OPpath /path/to/OP/ 
---AAdcd_dir /path/to/AAdcd/ 
---native_AA_pdb /path/to/native.pdb 
---state_idx_list 1 2 3 4 5 
---prot_len 390 
---last_num_frames 100 
---rm_traj_list 65 75 155 
---native_state_idx 0 
---outdir TestingGrounds/Compare/ 
---ID 1ZMR 
---start 0 
---end 1000 
---stride 1 
---num_perm 1000 
---n_boot 100 
---lag_frame 20 
---nproc 10
+Collect per-trajectory SASA/XP outputs (optional) and run the LiP-MS / XL-MS
+consistency test.
+
+Two usage modes:
+
+  1. Collect + run  (provide --sasa_dir and --xp_dir):
+     python scripts/run_compare_sim2exp.py
+         --sasa_dir   /path/to/OP_AA/SASA
+         --xp_dir     /path/to/OP_AA/XP
+         --n_traj     1000
+         --n_frames   335
+         --msm_data_file ...  (remaining args as below)
+
+  2. Skip collection (provide --sasa_data_file and --dist_data_file directly):
+     python scripts/run_compare_sim2exp.py
+         --sasa_data_file /path/to/SASA.npy
+         --dist_data_file /path/to/Jwalk.npy
+         --msm_data_file ...
+
+Full example (mode 1):
+python scripts/run_compare_sim2exp.py
+--sasa_dir        /path/to/OP_AA/SASA
+--xp_dir          /path/to/OP_AA/XP
+--n_traj          1000
+--n_frames        335
+--msm_data_file   /path/to/msm_data.csv
+--meta_dist_file  /path/to/meta_dist.npy
+--LiPMS_exp_file  /path/to/LiPMS_exp.xlsx
+--XLMS_exp_file   /path/to/XLMS_exp.xlsx
+--cluster_data_file /path/to/cluster_data.npz
+--OPpath          /path/to/OP_AA/
+--AAdcd_dir       /path/to/aa_trajectories/
+--native_AA_pdb   /path/to/native.pdb
+--state_idx_list  4 6 8
+--prot_len        387
+--last_num_frames 335
+--rm_traj_list    65 75 155
+--native_state_idx 9
+--outdir          /path/to/outdir/
+--ID              1ZMR
+--start           6600
+--end             -1
+--stride          1
+--num_perm        1000
+--n_boot          100
+--lag_frame       20
+--nproc           10
 """
 
 def main(argv=None):
@@ -44,9 +66,7 @@ def main(argv=None):
     parser.add_argument("--msm_data_file", type=str, required=True, help="Path to MSM mapping file")
     parser.add_argument("--meta_dist_file", type=str, required=True, help="Path to meta-distance file")
     parser.add_argument("--LiPMS_exp_file", type=str, required=True, help="Path to LiP-MS experimental data file")
-    parser.add_argument("--sasa_data_file", type=str, required=True, help="Path to SASA data file")
     parser.add_argument("--XLMS_exp_file", type=str, required=True, help="Path to XL-MS experimental data file")
-    parser.add_argument("--dist_data_file", type=str, required=True, help="Path to distance data file")
     parser.add_argument("--cluster_data_file", type=str, required=True, help="Path to clustering data file")
     parser.add_argument("--OPpath", type=str, required=True, help="Path to order parameters directory")
     parser.add_argument("--AAdcd_dir", type=str, required=True, help="Path to all-atom DCD files directory")
@@ -66,6 +86,23 @@ def main(argv=None):
     parser.add_argument("--n_boot", type=int, required=True, help="Number of bootstrap samples")
     parser.add_argument("--lag_frame", type=int, required=True, help="Lag time in frames")
     parser.add_argument("--nproc", type=int, required=True, help="Number of processes for parallel computation")
+    # --- CollectOP arguments (optional: collect from per-traj files) ---
+    parser.add_argument("--sasa_dir", type=str, default=None,
+                        help="Directory of per-traj {ID}_Traj{N}.SASA files. "
+                             "If provided together with --xp_dir, CollectOP is run "
+                             "before MassSpec and --sasa_data_file / --dist_data_file "
+                             "are set automatically.")
+    parser.add_argument("--xp_dir", type=str, default=None,
+                        help="Directory of per-traj {ID}_Traj{N}.XP files (used with --sasa_dir).")
+    parser.add_argument("--n_traj", type=int, default=None,
+                        help="Total number of trajectories for CollectOP (required with --sasa_dir).")
+    parser.add_argument("--n_frames", type=int, default=None,
+                        help="Frames per trajectory stored in each file (required with --sasa_dir).")
+    # --- Direct array paths (used when skipping collection) ---
+    parser.add_argument("--sasa_data_file", type=str, default=None,
+                        help="Path to pre-built SASA.npy. Required if --sasa_dir is not provided.")
+    parser.add_argument("--dist_data_file", type=str, default=None,
+                        help="Path to pre-built Jwalk.npy. Required if --xp_dir is not provided.")
     args = parser.parse_args(argv)
     print(args)
     msm_data_file = args.msm_data_file
@@ -94,7 +131,38 @@ def main(argv=None):
     lag_frame = args.lag_frame
     nproc = args.nproc
 
-    ## initialize the MassSpec object
+    # ── validate input mode ────────────────────────────────────────────────
+    collect_mode = args.sasa_dir is not None and args.xp_dir is not None
+    direct_mode  = args.sasa_data_file is not None and args.dist_data_file is not None
+
+    if not collect_mode and not direct_mode:
+        parser.error(
+            "Provide either (--sasa_dir + --xp_dir + --n_traj + --n_frames) "
+            "to collect from per-trajectory files, or "
+            "(--sasa_data_file + --dist_data_file) to use pre-built arrays."
+        )
+
+    # ── Step 1: collect per-trajectory outputs if requested ───────────────
+    if collect_mode:
+        if args.n_traj is None or args.n_frames is None:
+            parser.error("--n_traj and --n_frames are required when using --sasa_dir / --xp_dir")
+
+        os.makedirs(outdir, exist_ok=True)
+        collector = CollectOP(
+            sasa_dir  = args.sasa_dir,
+            xp_dir    = args.xp_dir,
+            outdir    = outdir,
+            ID        = ID,
+            n_traj    = args.n_traj,
+            n_frames  = args.n_frames,
+            prot_len  = prot_len,
+        )
+        sasa_data_file = collector.collect_SASA()
+        dist_data_file = collector.collect_Jwalk()
+        print(f'CollectOP SASA:  {sasa_data_file}')
+        print(f'CollectOP Jwalk: {dist_data_file}')
+
+    # ── Step 2: run the consistency test ──────────────────────────────────
     MS = MassSpec(msm_data_file=msm_data_file,
                     meta_dist_file=meta_dist_file,
                     LiPMS_exp_file=LiPMS_exp_file,

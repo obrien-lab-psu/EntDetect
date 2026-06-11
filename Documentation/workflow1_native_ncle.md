@@ -10,6 +10,19 @@ Identify all native NCLEs present in a reference protein structure, filter for h
 
 ---
 
+## Table of Contents
+
+- [Step 1. Activate your environment and set paths](#step-1-activate-your-environment-and-set-paths)
+- [Step 2. Prepare a cleaned structure](#step-2-prepare-a-cleaned-structure)
+- [Step 3. Detect native entanglements](#step-3-detect-native-entanglements)
+- [Step 4. Filter for high-quality entanglements](#step-4-filter-for-high-quality-entanglements)
+- [Step 5. Cluster redundant NCLEs into representative entanglements](#step-5-cluster-redundant-ncles-into-representative-entanglements)
+- [Step 6. Compute structural features for representative NCLEs](#step-6-compute-structural-features-for-representative-ncles)
+- [Step 7. Visualize the representative entanglements](#step-7-visualize-the-representative-entanglements)
+- [Running the full workflow as a single script](#running-the-full-workflow-as-a-single-script)
+
+---
+
 ## Typical runtime
 
 | Step | Runtime |
