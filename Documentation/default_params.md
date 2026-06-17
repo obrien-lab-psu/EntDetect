@@ -5,7 +5,7 @@ This table tracks default parameters used in EntDetect tutorials and their imple
 | workflow | analysis_name | parameter | description | default_value | class/attribute/methods/functions that use this parameter across EntDetect |
 |---|---|---|---|---|---|
 | workflow1 | native_entanglement_detection | g_threshold | Gaussian entanglement threshold for NCLE detection/filtering | 0.6 | EntDetect.gaussian_entanglement.GaussianEntanglement.__init__; EntDetect.order_params.CalculateOP.Gpy (local g_threshold=0.6); scripts/run_nativeNCLE.py tutorial usage |
-| workflow1 | native_entanglement_detection | density | Triangulation density for minimal loop surface | 0.0 | EntDetect.gaussian_entanglement.GaussianEntanglement.__init__ |
+| workflow1 | native_entanglement_detection | density | Triangulation density for minimal loop surface | 1.0 | scripts/run_nativeNCLE.py; EntDetect.gaussian_entanglement.GaussianEntanglement.__init__ |
 | workflow1 | native_entanglement_detection | ent_detection_method | ENT criterion (1=GLN, 2=TLN, 3=GLN+TLN same termini) | 2 (class default), 3 (run_nativeNCLE script default) | EntDetect.gaussian_entanglement.GaussianEntanglement.__init__/determine_ent_status; scripts/run_nativeNCLE.py; scripts/run_workflow4_nativeNCLE_batch.py |
 | workflow1 | native_entanglement_detection | Calpha | Use C-alpha contact mode | False | EntDetect.gaussian_entanglement.GaussianEntanglement.__init__; scripts/run_nativeNCLE.py |
 | workflow1 | native_entanglement_detection | CG | Input is coarse-grained C-alpha model | False | EntDetect.gaussian_entanglement.GaussianEntanglement.__init__; scripts/run_nativeNCLE.py |
@@ -15,9 +15,9 @@ This table tracks default parameters used in EntDetect tutorials and their imple
 | workflow1 | native_hq_selection | model | Structure model type for HQ filtering | EXP | scripts/run_nativeNCLE.py (default EXP; tutorial often overrides AF for AF structures) |
 | workflow1 | logging | log_level | Logging verbosity | INFO | scripts/run_nativeNCLE.py; EntDetect._logging.setup_logger consumers across modules |
 | workflow2 | order_parameters | outdir | Base output directory for OP products | ./ | EntDetect.order_params.CalculateOP.__init__; scripts/run_OP_on_simulation_traj.py |
-| workflow2 | order_parameters | Traj | Trajectory number tag | 1 | EntDetect.order_params.CalculateOP.__init__; scripts/run_OP_on_simulation_traj.py |
+| workflow2 | order_parameters | Traj | Trajectory number tag | required in run_OP_on_simulation_traj.py (fallback class default: 1) | scripts/run_OP_on_simulation_traj.py; EntDetect.order_params.CalculateOP.__init__ |
 | workflow2 | order_parameters | start | Start frame index (0-based) | 0 | EntDetect.order_params.CalculateOP.__init__; scripts/run_OP_on_simulation_traj.py |
-| workflow2 | order_parameters | end | End frame index (large sentinel = all frames) | 99999999999999 (class); script may pass None/-1 semantics externally | EntDetect.order_params.CalculateOP.__init__; scripts/run_OP_on_simulation_traj.py |
+| workflow2 | order_parameters | end | End frame index (large sentinel = all frames) | 99999999999999 (class default; run_OP_on_simulation_traj.py does not expose `--end`) | EntDetect.order_params.CalculateOP.__init__; scripts/run_OP_on_simulation_traj.py |
 | workflow2 | order_parameters | stride | Frame stride for OP calculations | 1 | EntDetect.order_params.CalculateOP.__init__; scripts/run_OP_on_simulation_traj.py |
 | workflow2 | order_parameters | ent_detection_method | ENT criterion for G calculations | 2 (CalculateOP class), 1 (run_OP_on_simulation_traj.py default) | EntDetect.order_params.CalculateOP.__init__/Gpy; scripts/run_OP_on_simulation_traj.py |
 | workflow2 | order_parameters | ops | Selected OP outputs to compute | [Q, G, K] | scripts/run_OP_on_simulation_traj.py |
@@ -45,14 +45,14 @@ This table tracks default parameters used in EntDetect tutorials and their imple
 | workflow2 | pathway_stats | n_window | Rolling window size for state probability smoothing | 200 | scripts/run_Foldingpathway.py; EntDetect.statistics.FoldingPathwayStats |
 | workflow2 | pathway_stats | n_traj | Total number of trajectories for normalization | 1000 | scripts/run_Foldingpathway.py; EntDetect.statistics.FoldingPathwayStats |
 | workflow2 | pathway_stats | state_type | State column used for pathway stats | metastablestate | scripts/run_Foldingpathway.py; EntDetect.statistics.FoldingPathwayStats |
-| workflow3 | consistency_test | start | First frame index used when loading trajectory-level arrays | 0 (script usage), 0 (class default) | scripts/run_compare_sim2exp.py; EntDetect.compare_sim2exp.MassSpec.__init__ |
-| workflow3 | consistency_test | end | Last frame index used for loading | -1 (script usage), 999999999999 (class default) | scripts/run_compare_sim2exp.py; EntDetect.compare_sim2exp.MassSpec.__init__ |
-| workflow3 | consistency_test | stride | Frame stride during loading | 1 | scripts/run_compare_sim2exp.py; EntDetect.compare_sim2exp.MassSpec.__init__ |
+| workflow3 | consistency_test | start | First frame index used when loading trajectory-level arrays | required in run_compare_sim2exp.py (fallback class default: 0) | scripts/run_compare_sim2exp.py; EntDetect.compare_sim2exp.MassSpec.__init__ |
+| workflow3 | consistency_test | end | Last frame index used for loading | required in run_compare_sim2exp.py (fallback class default: 999999999999) | scripts/run_compare_sim2exp.py; EntDetect.compare_sim2exp.MassSpec.__init__ |
+| workflow3 | consistency_test | stride | Frame stride during loading | required in run_compare_sim2exp.py (fallback class default: 1) | scripts/run_compare_sim2exp.py; EntDetect.compare_sim2exp.MassSpec.__init__ |
 | workflow3 | consistency_test | verbose | Verbose mode flag | False | EntDetect.compare_sim2exp.MassSpec.__init__; scripts/run_compare_sim2exp.py |
-| workflow3 | consistency_test | num_perm | Number of permutations in significance testing | 10000 (class), script usually supplies 1000 | EntDetect.compare_sim2exp.MassSpec.__init__/permutation_test/LiP_XL_MS_ConsistencyTest; scripts/run_compare_sim2exp.py |
-| workflow3 | consistency_test | n_boot | Number of bootstrap samples | 10000 (class), script usually supplies 100 | EntDetect.compare_sim2exp.MassSpec.__init__/bootstrap usage in LiP_XL_MS_ConsistencyTest; scripts/run_compare_sim2exp.py |
-| workflow3 | consistency_test | lag_frame | Downsampling lag (frames) for state sampling | 1 (class), script usually supplies 20 | EntDetect.compare_sim2exp.MassSpec.__init__/LiP_XL_MS_ConsistencyTest; scripts/run_compare_sim2exp.py |
-| workflow3 | consistency_test | nproc | Parallel worker count for downstream representative-structure extraction | 1 (class), script passes user value | EntDetect.compare_sim2exp.MassSpec.__init__/select_rep_structs; scripts/run_compare_sim2exp.py |
+| workflow3 | consistency_test | num_perm | Number of permutations in significance testing | required in run_compare_sim2exp.py (fallback class default: 10000) | EntDetect.compare_sim2exp.MassSpec.__init__/permutation_test/LiP_XL_MS_ConsistencyTest; scripts/run_compare_sim2exp.py |
+| workflow3 | consistency_test | n_boot | Number of bootstrap samples | required in run_compare_sim2exp.py (fallback class default: 10000) | EntDetect.compare_sim2exp.MassSpec.__init__/bootstrap usage in LiP_XL_MS_ConsistencyTest; scripts/run_compare_sim2exp.py |
+| workflow3 | consistency_test | lag_frame | Downsampling lag (frames) for state sampling | required in run_compare_sim2exp.py (fallback class default: 1) | EntDetect.compare_sim2exp.MassSpec.__init__/LiP_XL_MS_ConsistencyTest; scripts/run_compare_sim2exp.py |
+| workflow3 | consistency_test | nproc | Parallel worker count for downstream representative-structure extraction | required in run_compare_sim2exp.py (fallback class default: 1) | EntDetect.compare_sim2exp.MassSpec.__init__/select_rep_structs; scripts/run_compare_sim2exp.py |
 | workflow3 | consistency_test | rm_traj_list | Trajectory exclusions (mirror images) | [] (class) | EntDetect.compare_sim2exp.MassSpec.__init__/all selection/filtering paths; scripts/run_compare_sim2exp.py |
 | workflow3 | consistency_test | resid2residueidx_map | Residue index remapping dictionary | {} (identity map inferred when empty) | EntDetect.compare_sim2exp.MassSpec.__init__; select_rep_structs mapping logic |
 | workflow3 | consistency_test_collection | collect_jwalk_npy | Build legacy Jwalk.npy from XP files | False (flag off by default) | scripts/run_compare_sim2exp.py; EntDetect.order_params.CollectOP.collect_Jwalk |
@@ -60,7 +60,7 @@ This table tracks default parameters used in EntDetect tutorials and their imple
 | workflow4 | native_ncle_batch | allow_prefix_match | Allow gene IDs to match PDB stem by prefix token | False | scripts/run_workflow4_nativeNCLE_batch.py |
 | workflow4 | native_ncle_batch | dry_run | Print selected proteins only, no execution | False | scripts/run_workflow4_nativeNCLE_batch.py |
 | workflow4 | native_ncle_batch | organism | Organism mode forwarded to run_nativeNCLE | Ecoli | scripts/run_workflow4_nativeNCLE_batch.py; scripts/run_nativeNCLE.py; EntDetect.clustering.ClusterNativeEntanglements |
-| workflow4 | native_ncle_batch | Accession | Accession identifier forwarded to feature generation | P00558 | scripts/run_workflow4_nativeNCLE_batch.py; scripts/run_nativeNCLE.py; EntDetect.entanglement_features.FeatureGen.get_uent_features |
+| workflow4 | native_ncle_batch | Accession | Accession identifier forwarded to feature generation | None in run_workflow4_nativeNCLE_batch.py (resolved per-protein to `ID`); P00558 in run_nativeNCLE.py | scripts/run_workflow4_nativeNCLE_batch.py; scripts/run_nativeNCLE.py; EntDetect.entanglement_features.FeatureGen.get_uent_features |
 | workflow4 | native_ncle_batch | resolution | Resolution forwarded to run_nativeNCLE | None | scripts/run_workflow4_nativeNCLE_batch.py; scripts/run_nativeNCLE.py |
 | workflow4 | native_ncle_batch | contacts | Contact mode forwarded to run_nativeNCLE | None | scripts/run_workflow4_nativeNCLE_batch.py; scripts/run_nativeNCLE.py |
 | workflow4 | native_ncle_batch | cluster_cutoff | Native clustering cutoff override in batch path | None | scripts/run_workflow4_nativeNCLE_batch.py; scripts/run_nativeNCLE.py; EntDetect.clustering.ClusterNativeEntanglements |
@@ -82,6 +82,6 @@ This table tracks default parameters used in EntDetect tutorials and their imple
 
 ## Notes
 
-- This table focuses on defaults that are explicit in tutorial-facing scripts/classes used by Workflows 1–4.
-- Some classes require caller-supplied values with no intrinsic defaults (for example, `MonteCarlo` constructor arguments). In those cases, the tutorial script defaults are listed.
+- Default precedence policy used here: `scripts/run_*.py` defaults first, class/function constructor defaults second when scripts do not provide defaults.
+- If a run script marks a parameter as required (no script default), the table lists it as `required in <script>` and then reports constructor fallback defaults when available.
 - Where script defaults differ from class defaults, both are noted in `default_value`.

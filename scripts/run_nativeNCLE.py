@@ -121,7 +121,7 @@ def main(argv=None):
         Calpha = args.contacts == "calpha"
 
     # Set up Gaussian Entanglement and Clustering objects
-    ge = GaussianEntanglement(g_threshold=0.6, density=0.0, Calpha=Calpha, CG=CG, ent_detection_method=args.ent_detection_method, log_level=log_level, logdir=logdir)
+    ge = GaussianEntanglement(g_threshold=0.6, density=1.0, Calpha=Calpha, CG=CG, ent_detection_method=args.ent_detection_method, log_level=log_level, logdir=logdir)
     clustering = ClusterNativeEntanglements(organism=organism, cut_off=cluster_cutoff, log_level=log_level, logdir=logdir)
 
     # Determine which chains to process

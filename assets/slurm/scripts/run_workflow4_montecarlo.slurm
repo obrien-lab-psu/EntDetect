@@ -65,7 +65,7 @@ LOGDIR=$OUTROOT/logs
 TAG=Ecoli_population_mc
 
 # For faster test runs, lower STEPS (for example 10000) before submitting.
-STEPS=100000
+STEPS=10000
 N_GROUPS=4
 C1=1.0
 C2=2.5
