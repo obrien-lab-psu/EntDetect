@@ -391,6 +391,36 @@ Typical Monte Carlo outputs include:
 
 ---
 
+## I/O Reference for run_workflow4_nativeNCLE_batch.py
+
+| I/O | File | Description |
+|---|---|---|
+| Input | `$DATASTORE/user_input/reference_structures/AF/*.pdb` | Input structure files processed in batch mode. |
+| Input | `$DATASTORE/user_input/experimental_data/Gene_lists/AF/AF_0.6g_C_Rall_spa50_LiPMScov50_ent_genes.txt` | Gene list file used to select proteins for processing. |
+| Input | `$DATASTORE/user_input/reference_structures/PDB_residue_features/AF/residueFeatures.csv` | Residue feature table used to build the workflow 4 design matrix. |
+| Output | `$OUTDIR/<ID>/...` | Per-protein workflow1-style outputs for each selected structure. |
+| Output | `$OUTDIR/residue_dataframes_workflow4.csv` | Combined Step 4 design matrix for downstream regression and Monte Carlo. |
+
+## I/O Reference for run_population_modeling.py
+
+| I/O | File | Description |
+|---|---|---|
+| Input | `$OUTDIR/residue_dataframes_workflow4.csv` | Combined design matrix CSV used for proteome regression. |
+| Input | `$DATASTORE/user_input/experimental_data/Gene_lists/AF/AF_0.6g_C_Rall_spa50_LiPMScov50_ent_genes.txt` | Cohort gene list used to subset/validate modeled proteins. |
+| Output | `$OUTDIR/population_modeling/regression_results_<tag>.csv` | Step 5 logistic regression summary table. |
+
+## I/O Reference for run_montecarlo.py
+
+| I/O | File | Description |
+|---|---|---|
+| Input | `$OUTDIR/residue_dataframes_workflow4.csv` | Combined design matrix CSV used for Monte Carlo optimization. |
+| Input | `$DATASTORE/user_input/experimental_data/Gene_lists/AF/AF_0.6g_C_Rall_spa50_LiPMScov50_ent_genes.txt` | Cohort gene list used in Monte Carlo grouping. |
+| Output | `$OUTDIR/monte_carlo/Final_step_reg_<tag>.csv` | Final objective/OR summary after optimization. |
+| Output | `$OUTDIR/monte_carlo/State*_final_genelist_<tag>.txt` | Final per-state gene members. |
+| Output | `$OUTDIR/monte_carlo/State*_final_traj_<tag>.csv` | Final per-state assignment trajectories/statistics. |
+
+---
+
 ## Step 7. Rank and refine candidate protein groups
 
 Use the final state files from repeated Monte Carlo runs to build robust candidate sets:

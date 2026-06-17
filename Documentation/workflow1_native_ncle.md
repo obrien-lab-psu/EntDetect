@@ -307,6 +307,18 @@ python scripts/run_nativeNCLE.py \
 
 ---
 
+## I/O Reference for run_nativeNCLE.py
+
+| I/O | File | Description |
+|---|---|---|
+| Input | `$DATASTORE/user_input/reference_structures/1zmr_model_clean.pdb` | Cleaned structure file used for native NCLE detection. |
+| Output | `$OUTDIR/Native_raw_GE/` | Step 3 native entanglement detection outputs. |
+| Output | `$OUTDIR/Native_HQ_GE/` | Step 4 high-quality-filtered entanglements. |
+| Output | `$OUTDIR/Native_clustered_HQ_GE/` | Step 5 representative clustered NCLE files. |
+| Output | `$OUTDIR/Native_clustered_HQ_GE_features/<ACCESSION>_<ID>_<CHAIN>_uent_features.csv` | Step 6 residue-level entanglement feature table. |
+
+---
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |

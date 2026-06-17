@@ -445,6 +445,27 @@ python scripts/run_compare_sim2exp.py \
 
 ---
 
+## I/O Reference for run_compare_sim2exp.py
+
+| I/O | File | Description |
+|---|---|---|
+| Input | `$DATASTORE/outputs/workflow2/OP_AA/SASA/*.SASA` | Per-trajectory SASA files used to build consolidated arrays in Step 4. |
+| Input | `$DATASTORE/outputs/workflow2/OP_AA/XP/*.XP` | Per-trajectory XP files used to build consolidated arrays in Step 4. |
+| Input | `$OUTDIR/SASA.npy`, `$OUTDIR/Jwalk.npy` | Pre-built consolidated arrays (alternative to on-the-fly collection). |
+| Input | `$DATASTORE/outputs/workflow2/MSM/1ZMR_prod_MSMmapping.csv` | MSM mapping artifact from workflow 2 Step 6. |
+| Input | `$DATASTORE/outputs/workflow2/MSM/1ZMR_prod_meta_dist.npy` | MSM metastable distance artifact from workflow 2 Step 6. |
+| Input | `$DATASTORE/user_input/experimental_data/ecPGK_significant_LiPMS_peptide_R1_merged.xlsx` | LiP-MS experimental input file. |
+| Input | `$DATASTORE/user_input/experimental_data/ecPGK_significant_XLMS_peptide_R1_merged.xlsx` | XL-MS experimental input file. |
+| Input | `$DATASTORE/outputs/workflow2/nonnative_clustering/cluster_data_topoly_linking_number.npz` | Non-native cluster data from workflow 2 Step 5. |
+| Input | `$DATASTORE/user_input/aa_trajectories/*_prod_aa.dcd` | AA trajectory files used for representative extraction. |
+| Input | `$DATASTORE/user_input/reference_structures/1zmr_model_clean.pdb` | Native AA reference structure. |
+| Output | `$OUTDIR/SASA.npy`, `$OUTDIR/Jwalk.npy` | Consolidated trajectory-level arrays from Step 4 collection mode. |
+| Output | `$OUTDIR/LiPMS_XLMS_consist_pvalues_metastates_*.xlsx` | Step 5 per-state consistency p-values. |
+| Output | `$OUTDIR/consist_signal_struct_data.npz` | Step 5 consistency signal arrays. |
+| Output | `$OUTDIR/Consistent_structures_v8.xlsx` | Step 5 selected representative structures for visualization. |
+
+---
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |

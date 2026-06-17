@@ -776,6 +776,50 @@ python scripts/run_Foldingpathway.py \
 
 ---
 
+## I/O Reference for run_OP_on_simulation_traj.py
+
+| I/O | File | Description |
+|---|---|---|
+| Input | `$DATASTORE/user_input/reference_structures/1zmr_model_clean_ca.psf` | CG topology input used for Q/G/K calculations. |
+| Input | `$DATASTORE/user_input/cg_trajectories/420_prod.dcd` | CG trajectory input for Q/G/K calculations. |
+| Input | `$DATASTORE/user_input/reference_structures/1zmr_model_clean_ca.cor` | CG coordinate reference used for contact/entanglement calculations. |
+| Input | `$DATASTORE/user_input/reference_structures/secondary_struc_defs.txt` | Secondary-structure definition file. |
+| Input | `$DATASTORE/user_input/reference_structures/domain_def.dat` | Domain boundary definition file. |
+| Input | `$DATASTORE/user_input/reference_structures/1zmr_model_clean.pdb` | AA reference PDB used when computing XP. |
+| Input | `$DATASTORE/user_input/aa_trajectories/420_prod_aa.dcd` | AA trajectory input for SASA/XP calculations. |
+| Output | `$OUTDIR/OP/Q/`, `$OUTDIR/OP/G/`, `$OUTDIR/OP/K/` | Step 2 order-parameter outputs on CG trajectories. |
+| Output | `$OUTDIR/OP_AA/SASA/`, `$OUTDIR/OP_AA/XP/` | Step 3 SASA and XP outputs on AA trajectories. |
+| Output | `$OUTDIR/OP/G/Combined_GE/` | Aggregated G outputs consumed downstream by clustering/MSM tooling. |
+
+## I/O Reference for run_nonnative_entanglement_clustering.py
+
+| I/O | File | Description |
+|---|---|---|
+| Input | `$OUTDIR/OP/trajnum2pklfile_path.csv` | CSV map of trajectory numbers to per-trajectory OP/GE files. |
+| Input | `$DATASTORE/user_input/cg_trajectories/*_prod.dcd` | Trajectory files used by clustering routines. |
+| Output | `$OUTDIR/nonnative_clustering/cluster_data_topoly_linking_number.npz` | Step 5 cluster assignment and metadata used by workflow 3. |
+
+## I/O Reference for run_MSM.py
+
+| I/O | File | Description |
+|---|---|---|
+| Input | `$OUTDIR/OP/Q/*.dat` | Per-trajectory Q order-parameter files. |
+| Input | `$OUTDIR/OP/G/*.pkl` | Per-trajectory G/topology files used for MSM feature construction. |
+| Output | `$OUTDIR/MSM/<ID>_MSMmapping.csv` | Step 6 state assignment table used in workflows 2 and 3. |
+| Output | `$OUTDIR/MSM/<ID>_meta_set.csv` | Step 6 metastable-state composition file used by folding-pathway analysis. |
+| Output | `$OUTDIR/MSM/<ID>_meta_dist.npy` | Step 6 metastable distance matrix used by workflow 3 consistency testing. |
+
+## I/O Reference for run_Foldingpathway.py
+
+| I/O | File | Description |
+|---|---|---|
+| Input | `$OUTDIR/MSM/<ID>_MSMmapping_<case>.csv` | MSM mapping CSV from `run_MSM.py` including trajectory-type labels. |
+| Input | `$OUTDIR/MSM/<ID>_meta_set.csv` | Metastable-state set file from `run_MSM.py`. |
+| Output | `$OUTDIR/FoldingPathways_metastablestate_A-B.csv` | Step 9 pathway probability trajectories for compared groups. |
+| Output | `$OUTDIR/JS_div_metastablestate_A-B.dat` | Step 9 Jensen-Shannon divergence time series for compared groups. |
+
+---
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
