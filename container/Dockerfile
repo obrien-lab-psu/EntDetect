@@ -20,7 +20,7 @@ FROM condaforge/miniforge3:latest
 # ---------------------------------------------------------------------------
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        perl procps ca-certificates libgomp1 libstdc++6 \
+    perl procps ca-certificates libgomp1 libstdc++6 build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # ---------------------------------------------------------------------------
