@@ -9,7 +9,7 @@
 #
 # Build (from repo root):
 #   docker build -f container/Dockerfile -t ghcr.io/obrien-lab-psu/entdetect:local .
-FROM mambaorg/micromamba:2.8.1-ubuntu22.04
+FROM condaforge/miniforge3:latest
 
 # ---------------------------------------------------------------------------
 # System dependencies
@@ -27,8 +27,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Create the exactly-pinned conda environment from the lock file
 # ---------------------------------------------------------------------------
 COPY container/environment.lock.yml /tmp/environment.lock.yml
-RUN micromamba create -y -n entdetect -f /tmp/environment.lock.yml \
-    && micromamba clean --all --yes \
+RUN conda env create -n entdetect -f /tmp/environment.lock.yml \
+    && conda clean --all --yes \
     && rm -f /tmp/environment.lock.yml
 
 # Put the env on PATH so console-scripts are directly callable in both
